@@ -9,8 +9,10 @@ import Badge from '@/components/ui/Badge';
 import Avatar from '@/components/ui/Avatar';
 import { Center } from '@/types';
 import { Search, Plus, Copy, Check, Edit2, Trash2, CreditCard, Lock, Unlock } from 'lucide-react';
+import { useToast } from '@/components/ui/ToastProvider';
 
 export default function CentersPage() {
+  const toast = useToast();
   const [centers, setCenters] = useState<Center[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
   const [modal, setModal] = useState<'create' | 'edit' | 'assign' | 'credentials' | 'delete' | null>(null);
@@ -53,10 +55,10 @@ export default function CentersPage() {
   }
 
   async function createCenter() {
-    if (!form.name.trim()) return alert('Markaz nomini kiriting');
-    if (!form.adminName.trim()) return alert('Admin ismini kiriting');
-    if (!form.adminPhone.trim()) return alert('Admin telefonini kiriting');
-    if (!form.adminPassword.trim()) return alert('Admin parolini kiriting');
+    if (!form.name.trim()) { toast.warning('Markaz nomini kiriting'); return; }
+    if (!form.adminName.trim()) { toast.warning('Admin ismini kiriting'); return; }
+    if (!form.adminPhone.trim()) { toast.warning('Admin telefonini kiriting'); return; }
+    if (!form.adminPassword.trim()) { toast.warning('Admin parolini kiriting'); return; }
     setLoading(true);
     try {
       const payload: any = { name: form.name, adminName: form.adminName, adminPhone: form.adminPhone, adminPassword: form.adminPassword };
@@ -69,7 +71,7 @@ export default function CentersPage() {
       await load();
     } catch (err: any) {
       const msg = err?.response?.data?.message;
-      alert(Array.isArray(msg) ? msg.join('\n') : msg || 'Xatolik yuz berdi');
+      toast.error(Array.isArray(msg) ? msg.join(' ') : msg || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
@@ -95,7 +97,7 @@ export default function CentersPage() {
       setModal(null);
       await load();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }

@@ -7,8 +7,10 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Avatar from '@/components/ui/Avatar';
 import { School } from 'lucide-react';
+import { useToast } from '@/components/ui/ToastProvider';
 
 export default function TeachersPage() {
+  const toast = useToast();
   const [teachers, setTeachers] = useState<any[]>([]);
   const [modal, setModal] = useState(false);
   const [editModal, setEditModal] = useState<any>(null);
@@ -30,7 +32,7 @@ export default function TeachersPage() {
       setForm({ name: '', phone: '', specialty: '' });
       void load();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally { setLoading(false); }
   }
 
@@ -42,7 +44,7 @@ export default function TeachersPage() {
       setEditModal(null);
       void load();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally { setLoading(false); }
   }
 
@@ -54,7 +56,7 @@ export default function TeachersPage() {
       setDeleteModal(null);
       void load();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }

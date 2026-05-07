@@ -10,10 +10,9 @@ body {
 
 @keyframes slide-in {
   from {
-    transform: translateX(100%);
+    transform: translateX(calc(100% + 20px));
     opacity: 0;
   }
-
   to {
     transform: translateX(0);
     opacity: 1;
@@ -21,5 +20,10 @@ body {
 }
 
 .animate-slide-in {
-  animation: slide-in 0.3s ease-out;
+  animation: slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Sidebar collapse transition */
+aside {
+  transition: width 0.2s ease;
 }

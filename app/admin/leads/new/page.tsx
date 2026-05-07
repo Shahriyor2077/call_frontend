@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { ArrowLeft } from 'lucide-react';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const SOURCE_OPTIONS = ['Instagram', 'Telegram', 'Tavsiya', 'Sayt', 'Boshqa'];
 
@@ -19,6 +20,7 @@ export default function NewLeadPage() {
         notes: '',
         operatorId: '',
     });
+    const toast = useToast();
     const [operators, setOperators] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -44,7 +46,7 @@ export default function NewLeadPage() {
             router.push('/admin/leads');
         } catch (err) {
             console.error('Lead yaratishda xato:', err);
-            alert('Xatolik yuz berdi');
+            toast.error('Xatolik yuz berdi');
         } finally {
             setLoading(false);
         }

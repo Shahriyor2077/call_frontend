@@ -7,9 +7,11 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import { MoreVertical, BookOpen } from 'lucide-react';
+import { useToast } from '@/components/ui/ToastProvider';
 
 export default function CoursesPage() {
   const router = useRouter();
+  const toast = useToast();
   const [courses, setCourses] = useState<any[]>([]);
   const [modal, setModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
@@ -51,7 +53,7 @@ export default function CoursesPage() {
       setDeleteModal(false);
       await load();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
@@ -70,7 +72,7 @@ export default function CoursesPage() {
       setModal(false);
       await load();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
@@ -86,58 +88,74 @@ export default function CoursesPage() {
         <Button onClick={openCreate}>+ Yangi kurs</Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-        {courses.map(c => {
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
+        {courses.map((c, idx) => {
           const totalStudents = (c.groups ?? []).reduce((s: number, g: any) => s + (g._count?.enrollments ?? 0), 0);
           const teacher = (c.groups ?? []).find((g: any) => g.teacher)?.teacher;
+          const gradients = [
+            ['from-indigo-500', 'to-violet-600'],
+            ['from-emerald-400', 'to-teal-600'],
+            ['from-rose-400',   'to-pink-600'],
+            ['from-amber-400',  'to-orange-500'],
+            ['from-sky-400',    'to-blue-600'],
+            ['from-violet-500', 'to-purple-700'],
+          ];
+          const [gFrom, gTo] = gradients[idx % gradients.length];
 
           return (
-            <div key={c.id} className="bg-white rounded-xl border p-5 relative cursor-pointer hover:border-indigo-300 hover:shadow-sm transition-all" onClick={() => router.push(`/admin/groups?courseId=${c.id}`)}>
+            <div
+              key={c.id}
+              className="bg-white rounded-2xl border border-gray-100 p-5 relative cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all group shadow-sm"
+              onClick={() => router.push(`/admin/groups?courseId=${c.id}`)}
+            >
+              {/* Header */}
               <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center shrink-0">
-                    <svg className="text-indigo-600" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{c.name}</p>
-                    <p className="text-xs text-gray-400">{c.description || '—'}</p>
-                  </div>
+                <div className={`w-12 h-12 rounded-xl bg-linear-to-br ${gFrom} ${gTo} flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform shrink-0`}>
+                  <BookOpen size={22} />
                 </div>
                 <div className="relative">
                   <button
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(menuOpen === c.id ? null : c.id); }}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400"
-                  ><MoreVertical size={15} /></button>
+                    onClick={e => { e.stopPropagation(); setMenuOpen(menuOpen === c.id ? null : c.id); }}
+                    className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 transition-colors"
+                  >
+                    <MoreVertical size={15} />
+                  </button>
                   {menuOpen === c.id && (
-                    <div className="absolute right-0 top-8 bg-white border rounded-xl shadow-lg py-1 z-10 w-36">
-                      <button onClick={() => openEdit(c)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Tahrirlash</button>
-                      <button onClick={() => openDelete(c)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">O'chirish</button>
+                    <div className="absolute right-0 top-9 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-10 w-36">
+                      <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700">Tahrirlash</button>
+                      <button onClick={e => { e.stopPropagation(); openDelete(c); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">O&apos;chirish</button>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                <div>
-                  <p className="text-xs text-gray-400 mb-0.5">Guruhlar</p>
-                  <p className="font-semibold text-gray-900">{c._count?.groups ?? 0}</p>
+              {/* Title */}
+              <p className="text-[17px] font-bold text-gray-900 mb-0.5 truncate">{c.name}</p>
+              <p className="text-xs text-gray-400 mb-4 truncate">{c.description || 'Tavsif kiritilmagan'}</p>
+
+              {/* Divider */}
+              <div className="border-t border-gray-50 mb-4" />
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="text-center p-2 bg-gray-50 rounded-xl">
+                  <p className="text-lg font-bold text-gray-900 leading-none">{c._count?.groups ?? 0}</p>
+                  <p className="text-[10px] text-gray-400 mt-1 font-medium">Guruh</p>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-400 mb-0.5">Talabalar</p>
-                  <p className="font-semibold text-gray-900">{totalStudents}</p>
+                <div className="text-center p-2 bg-gray-50 rounded-xl">
+                  <p className="text-lg font-bold text-gray-900 leading-none">{totalStudents}</p>
+                  <p className="text-[10px] text-gray-400 mt-1 font-medium">Talaba</p>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-400 mb-0.5">O&apos;qituvchi</p>
-                  <p className="font-semibold text-gray-900 truncate">{teacher?.name ?? '—'}</p>
+                <div className="text-center p-2 bg-gray-50 rounded-xl truncate">
+                  <p className="text-[13px] font-bold text-gray-900 leading-none truncate">{teacher?.name?.split(' ')[0] ?? '—'}</p>
+                  <p className="text-[10px] text-gray-400 mt-1 font-medium">O&apos;qituvchi</p>
                 </div>
               </div>
             </div>
           );
         })}
         {courses.length === 0 && (
-          <div className="col-span-2 text-center py-16 text-gray-400">
+          <div className="col-span-3 text-center py-16 text-gray-400">
             <BookOpen size={36} className="mx-auto mb-3 text-gray-300" />
             <p className="font-medium">Hozircha kurs yo&apos;q</p>
           </div>

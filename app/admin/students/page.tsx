@@ -7,10 +7,12 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import { Download, MoreVertical } from 'lucide-react';
+import { useToast } from '@/components/ui/ToastProvider';
 
 type Tab = 'all' | 'debtors' | 'graduated';
 
 export default function AdminStudentsPage() {
+  const toast = useToast();
   const [students, setStudents] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -18,7 +20,11 @@ export default function AdminStudentsPage() {
   const [tab, setTab] = useState<Tab>('all');
   const [modal, setModal] = useState<'create' | 'enroll' | 'edit' | 'changeGroup' | 'delete' | 'actions' | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
-  const [form, setForm] = useState({ name: '', phone: '' });
+  const [form, setForm] = useState({
+    name: '', surname: '', phone: '', parentPhone: '',
+    gender: 'MALE', birthDate: '', notes: '', groupId: '',
+  });
+  const [enrollOnCreate, setEnrollOnCreate] = useState(false);
   const [enrollForm, setEnrollForm] = useState({ groupId: '' });
   const [loading, setLoading] = useState(false);
   const [historyStudent, setHistoryStudent] = useState<any>(null);
@@ -52,13 +58,34 @@ export default function AdminStudentsPage() {
   }
   useEffect(() => { void load(); }, []);
 
+  const emptyForm = { name: '', surname: '', phone: '', parentPhone: '', gender: 'MALE', birthDate: '', notes: '', groupId: '' };
+
   async function create() {
+    if (!form.name.trim()) { toast.warning('Ismni kiriting'); return; }
+    if (!form.phone.trim()) { toast.warning('Telefon raqamini kiriting'); return; }
     setLoading(true);
-    await api.post('/students', form);
-    setModal(null);
-    setForm({ name: '', phone: '' });
-    void load();
-    setLoading(false);
+    try {
+      const payload: any = {
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        gender: form.gender,
+      };
+      if (form.surname)     payload.surname     = form.surname;
+      if (form.parentPhone) payload.parentPhone = form.parentPhone;
+      if (form.birthDate)   payload.birthDate   = form.birthDate;
+      if (form.notes)       payload.notes       = form.notes;
+      if (enrollOnCreate && form.groupId) payload.groupId = form.groupId;
+      await api.post('/students', payload);
+      setModal(null);
+      setForm(emptyForm);
+      setEnrollOnCreate(false);
+      void load();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join(' ') : msg || 'Xatolik yuz berdi');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function enrollStudent() {
@@ -74,7 +101,7 @@ export default function AdminStudentsPage() {
       void load();
     } catch (err: any) {
       const msg = err?.response?.data?.message;
-      alert(Array.isArray(msg) ? msg.join('\n') : msg || 'Guruhga yozishda xatolik yuz berdi');
+      toast.error(Array.isArray(msg) ? msg.join(' ') : msg || 'Guruhga yozishda xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
@@ -96,7 +123,7 @@ export default function AdminStudentsPage() {
       void load();
     } catch (err: any) {
       const msg = err?.response?.data?.message;
-      alert(Array.isArray(msg) ? msg.join('\n') : msg || 'Guruhni almashtirishda xatolik yuz berdi');
+      toast.error(Array.isArray(msg) ? msg.join(' ') : msg || 'Guruhni almashtirishda xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
@@ -106,12 +133,20 @@ export default function AdminStudentsPage() {
     if (!selectedStudent) return;
     setLoading(true);
     try {
-      await api.put(`/students/${selectedStudent.id}`, form);
+      const payload: any = {
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        gender: form.gender,
+        surname: form.surname || undefined,
+        parentPhone: form.parentPhone || undefined,
+        birthDate: form.birthDate || undefined,
+        notes: form.notes || undefined,
+      };
+      await api.put(`/students/${selectedStudent.id}`, payload);
       setModal(null);
       void load();
-    } catch (err) {
-      console.error('Tahrirlashda xato:', err);
-      alert('Xatolik yuz berdi');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
@@ -125,7 +160,7 @@ export default function AdminStudentsPage() {
       setModal(null);
       void load();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
@@ -165,7 +200,7 @@ export default function AdminStudentsPage() {
       }
       void load();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
       setPayLoading(false);
     }
@@ -205,7 +240,7 @@ export default function AdminStudentsPage() {
 
   function exportToExcel() {
     if (byTab.length === 0) {
-      alert('Export qilish uchun ma\'lumot yo\'q');
+      toast.warning('Export qilish uchun ma\'lumot yo\'q');
       return;
     }
 
@@ -251,7 +286,7 @@ export default function AdminStudentsPage() {
       }, 100);
     } catch (error) {
       console.error('Export xatosi:', error);
-      alert('Export qilishda xatolik yuz berdi');
+      toast.error('Export qilishda xatolik yuz berdi');
     }
   }
 
@@ -483,8 +518,14 @@ export default function AdminStudentsPage() {
           <Button
             onClick={() => {
               setForm({
-                name: selectedStudent.name,
-                phone: selectedStudent.phone,
+                name: selectedStudent.name || '',
+                surname: selectedStudent.surname || '',
+                phone: selectedStudent.phone || '',
+                parentPhone: selectedStudent.parentPhone || '',
+                gender: selectedStudent.gender || 'MALE',
+                birthDate: selectedStudent.birthDate ? selectedStudent.birthDate.split('T')[0] : '',
+                notes: selectedStudent.notes || '',
+                groupId: '',
               });
               setModal("edit");
             }}
@@ -519,35 +560,39 @@ export default function AdminStudentsPage() {
         open={modal === "edit"}
         onClose={() => setModal(null)}
         title="Talabani tahrirlash"
-        size="sm"
+        size="lg"
       >
         <div className="space-y-4">
-          <Input
-            label="Ism familiya *"
-            value={form.name}
-            onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-          />
-          <Input
-            label="Telefon *"
-            value={form.phone}
-            onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-            placeholder="+998901234567"
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Ismi *" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
+            <Input label="Familiyasi" value={form.surname} onChange={e => setForm(p => ({ ...p, surname: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Telefon *" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="+998901234567" />
+            <Input label="Ota-onasining telefoni" value={form.parentPhone} onChange={e => setForm(p => ({ ...p, parentPhone: e.target.value }))} placeholder="+998901234567" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium text-gray-700 block mb-1.5">Jinsi</label>
+              <div className="flex gap-2">
+                {[{ v: 'MALE', l: 'Erkak' }, { v: 'FEMALE', l: 'Ayol' }].map(g => (
+                  <button key={g.v} type="button" onClick={() => setForm(p => ({ ...p, gender: g.v }))}
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${form.gender === g.v ? 'bg-indigo-700 border-indigo-700 text-white' : 'border-gray-200 text-gray-600 hover:border-indigo-300'}`}>
+                    {g.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Input label="Tug'ilgan sanasi" type="date" value={form.birthDate} onChange={e => setForm(p => ({ ...p, birthDate: e.target.value }))} />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1.5">Izoh</label>
+            <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={2}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 resize-none" />
+          </div>
           <div className="flex gap-3 pt-2">
-            <Button
-              onClick={() => void updateStudent()}
-              loading={loading}
-              className="flex-1"
-            >
-              Saqlash
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setModal(null)}
-              className="flex-1"
-            >
-              Bekor
-            </Button>
+            <Button onClick={() => void updateStudent()} loading={loading} className="flex-1">Saqlash</Button>
+            <Button variant="secondary" onClick={() => setModal(null)} className="flex-1">Bekor</Button>
           </div>
         </div>
       </Modal>
@@ -651,37 +696,79 @@ export default function AdminStudentsPage() {
 
       <Modal
         open={modal === "create"}
-        onClose={() => setModal(null)}
-        title="Yangi talaba"
-        size="sm"
+        onClose={() => { setModal(null); setForm(emptyForm); setEnrollOnCreate(false); }}
+        title="Yangi talaba qo'shish"
+        size="lg"
       >
         <div className="space-y-4">
-          <Input
-            label="Ism familiya *"
-            value={form.name}
-            onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-          />
-          <Input
-            label="Telefon *"
-            value={form.phone}
-            onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-            placeholder="+998901234567"
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Ismi *" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Ismi" />
+            <Input label="Familiyasi" value={form.surname} onChange={e => setForm(p => ({ ...p, surname: e.target.value }))} placeholder="Familiyasi" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Telefon raqami *" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="+998901234567" />
+            <Input label="Ota-onasining telefon raqami" value={form.parentPhone} onChange={e => setForm(p => ({ ...p, parentPhone: e.target.value }))} placeholder="+998901234567" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Gender */}
+            <div>
+              <label className="text-sm font-medium text-gray-700 block mb-1.5">Jinsi</label>
+              <div className="flex gap-2">
+                {[{ v: 'MALE', l: 'Erkak' }, { v: 'FEMALE', l: 'Ayol' }].map(g => (
+                  <button
+                    key={g.v}
+                    type="button"
+                    onClick={() => setForm(p => ({ ...p, gender: g.v }))}
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${form.gender === g.v ? 'bg-indigo-700 border-indigo-700 text-white' : 'border-gray-200 text-gray-600 hover:border-indigo-300'}`}
+                  >
+                    {g.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Input label="Tug'ilgan sanasi" type="date" value={form.birthDate} onChange={e => setForm(p => ({ ...p, birthDate: e.target.value }))} />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1.5">Izoh</label>
+            <textarea
+              value={form.notes}
+              onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+              placeholder="Izoh..."
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 resize-none"
+            />
+          </div>
+          {/* Guruhga biriktirish toggle */}
+          <div className="border-t border-gray-100 pt-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setEnrollOnCreate(v => !v)}
+                className={`relative w-10 h-6 rounded-full transition-colors ${enrollOnCreate ? 'bg-indigo-600' : 'bg-gray-200'}`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${enrollOnCreate ? 'left-5' : 'left-1'}`} />
+              </button>
+              <span className="text-sm font-medium text-gray-700">Guruhga biriktirish</span>
+            </div>
+            {enrollOnCreate && (
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1.5">Guruh</label>
+                <select
+                  value={form.groupId}
+                  onChange={e => setForm(p => ({ ...p, groupId: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
+                >
+                  <option value="">— Guruhni tanlang —</option>
+                  {groups.filter(g => g.status === 'GATHERING' || g.status === 'ACTIVE').map(g => (
+                    <option key={g.id} value={g.id}>{g.name} · {g.course?.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
           <div className="flex gap-3 pt-2">
-            <Button
-              onClick={() => void create()}
-              loading={loading}
-              className="flex-1"
-            >
-              Saqlash
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setModal(null)}
-              className="flex-1"
-            >
-              Bekor
-            </Button>
+            <Button onClick={() => void create()} loading={loading} className="flex-1">Saqlash</Button>
+            <Button variant="secondary" onClick={() => { setModal(null); setForm(emptyForm); setEnrollOnCreate(false); }} className="flex-1">Bekor</Button>
           </div>
         </div>
       </Modal>
@@ -1001,7 +1088,7 @@ export default function AdminStudentsPage() {
             <Button
               onClick={() => {
                 if (!payForm.amount) {
-                  alert("Miqdorni kiriting");
+                  toast.warning('Miqdorni kiriting');
                   return;
                 }
                 setPayConfirm(true);

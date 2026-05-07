@@ -149,7 +149,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className={`${collapsed ? 'w-14' : 'w-[220px]'} min-h-screen bg-white border-r border-gray-100 flex flex-col shrink-0 transition-all duration-200`}>
+    <aside className={`${collapsed ? 'w-14' : 'w-[220px]'} h-full bg-white border-r border-gray-100 flex flex-col shrink-0 transition-all duration-200`}>
       {/* Logo */}
       <div className={`flex items-center h-14 border-b border-gray-100 px-3 ${collapsed ? 'justify-center' : 'justify-between'}`}>
         {!collapsed && (

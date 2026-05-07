@@ -5,6 +5,7 @@ import api from '@/lib/api';
 import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const STATUS_LABELS: Record<string, string> = {
   GATHERING: "To'plash", ACTIVE: 'Faol', COMPLETED: 'Yakunlangan', CANCELLED: 'Bekor',
@@ -25,6 +26,7 @@ const METHOD_COLOR: Record<string, string> = {
 };
 
 export default function OperatorGroupsPage() {
+  const toast = useToast();
   const [groups, setGroups] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -141,7 +143,7 @@ export default function OperatorGroupsPage() {
         setStudentHistoryPayments(data.data || []);
       }
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
       setPayLoading(false);
     }
@@ -563,7 +565,7 @@ export default function OperatorGroupsPage() {
           <div className="flex gap-3 pt-2">
             <Button
               onClick={() => {
-                if (!paymentForm.amount) { alert('Miqdorni kiriting'); return; }
+                if (!paymentForm.amount) { toast.warning('Miqdorni kiriting'); return; }
                 setPaymentConfirm(true);
               }}
               className="flex-1"

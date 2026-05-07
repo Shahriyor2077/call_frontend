@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { ArrowLeft } from 'lucide-react';
+import { useToast } from '@/components/ui/ToastProvider';
 
 export default function NewPaymentPage() {
     const router = useRouter();
@@ -21,6 +22,7 @@ export default function NewPaymentPage() {
         notes: '',
         type: 'MONTHLY',
     });
+    const toast = useToast();
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -64,7 +66,7 @@ export default function NewPaymentPage() {
             router.push('/admin/payments');
         } catch (err) {
             console.error('To\'lov yaratishda xato:', err);
-            alert('Xatolik yuz berdi');
+            toast.error('Xatolik yuz berdi');
         } finally {
             setLoading(false);
         }

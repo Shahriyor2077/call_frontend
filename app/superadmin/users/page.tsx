@@ -6,8 +6,10 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Badge from '@/components/ui/Badge';
+import { useToast } from '@/components/ui/ToastProvider';
 
 export default function SuperadminUsersPage() {
+  const toast = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [centers, setCenters] = useState<any[]>([]);
   const [modal, setModal] = useState<'create' | 'edit' | 'delete' | null>(null);
@@ -24,9 +26,9 @@ export default function SuperadminUsersPage() {
   useEffect(() => { void load(); }, []);
 
   async function createAdmin() {
-    if (!form.name.trim()) return alert('Ism kiriting');
-    if (!form.phone.trim()) return alert('Telefon kiriting');
-    if (!form.password.trim()) return alert('Parol kiriting');
+    if (!form.name.trim()) { toast.warning('Ism kiriting'); return; }
+    if (!form.phone.trim()) { toast.warning('Telefon kiriting'); return; }
+    if (!form.password.trim()) { toast.warning('Parol kiriting'); return; }
     setLoading(true);
     try {
       const payload: any = { name: form.name, phone: form.phone, password: form.password, role: 'ADMIN' };
@@ -37,7 +39,7 @@ export default function SuperadminUsersPage() {
       await load();
     } catch (err: any) {
       const msg = err?.response?.data?.message;
-      alert(Array.isArray(msg) ? msg.join('\n') : msg || 'Xatolik yuz berdi');
+      toast.error(Array.isArray(msg) ? msg.join(' ') : msg || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
@@ -68,7 +70,7 @@ export default function SuperadminUsersPage() {
       setSelected(null);
       await load();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }

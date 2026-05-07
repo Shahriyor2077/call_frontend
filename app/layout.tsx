@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 
 export const metadata: Metadata = {
   title: "EduCRM",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="uz" className="h-full">
-      <body className="h-full bg-gray-50 text-gray-900 antialiased">{children}</body>
+      <body className="h-full bg-gray-50 text-gray-900 antialiased">
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   );
 }

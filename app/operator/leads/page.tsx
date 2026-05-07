@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import { Phone, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const COLUMNS = [
   { value: 'NEW', label: 'Yangi', dot: 'bg-blue-500', bg: 'bg-blue-50 border-blue-100' },
@@ -20,6 +21,7 @@ const SOURCE_OPTIONS = ['Instagram', 'Telegram', 'Tavsiya', 'Sayt', 'Boshqa'];
 
 export default function OperatorLeadsPage() {
   const router = useRouter();
+  const toast = useToast();
   const [leads, setLeads] = useState<any[]>([]);
   const [createModal, setCreateModal] = useState(false);
   const [form, setForm] = useState({ name: '', phone: '', interest: '', source: '', notes: '' });
@@ -48,7 +50,7 @@ export default function OperatorLeadsPage() {
 
   async function createLead() {
     if (!form.name || !form.phone) {
-      alert('Ism va telefon majburiy!');
+      toast.warning('Ism va telefon majburiy!');
       return;
     }
     setLoading(true);
@@ -60,7 +62,7 @@ export default function OperatorLeadsPage() {
     } catch (err: any) {
       console.error('Lead yaratishda xato:', err);
       const message = err?.response?.data?.message || err?.message || 'Xatolik yuz berdi';
-      alert(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }

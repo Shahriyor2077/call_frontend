@@ -8,6 +8,7 @@ import Input from '@/components/ui/Input';
 import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import { ArrowLeft, Calendar } from 'lucide-react';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const COLUMNS = [
     { key: 'NEW', label: 'Yangi', dot: 'bg-blue-500' },
@@ -24,6 +25,7 @@ export default function LeadDetailPage() {
     const params = useParams();
     const id = params.id as string;
 
+    const toast = useToast();
     const [lead, setLead] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -36,7 +38,7 @@ export default function LeadDetailPage() {
             setLead(data);
         } catch (err) {
             console.error('Lead yuklashda xato:', err);
-            alert('Lead topilmadi');
+            toast.error('Lead topilmadi');
             router.back();
         } finally {
             setLoading(false);
@@ -54,7 +56,7 @@ export default function LeadDetailPage() {
             setLead({ ...lead, status });
         } catch (err) {
             console.error('Status yangilashda xato:', err);
-            alert('Xatolik yuz berdi');
+            toast.error('Xatolik yuz berdi');
         } finally {
             setSaving(false);
         }
@@ -64,10 +66,10 @@ export default function LeadDetailPage() {
         setSaving(true);
         try {
             await api.put(`/leads/${id}`, lead);
-            alert('Saqlandi');
+            toast.success('Saqlandi');
         } catch (err) {
             console.error('Lead yangilashda xato:', err);
-            alert('Xatolik yuz berdi');
+            toast.error('Xatolik yuz berdi');
         } finally {
             setSaving(false);
         }
@@ -79,7 +81,7 @@ export default function LeadDetailPage() {
             await api.delete(`/leads/${id}`);
             router.back();
         } catch (err: any) {
-            alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+            toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
         } finally {
             setSaving(false);
         }

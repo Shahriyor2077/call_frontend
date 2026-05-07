@@ -7,6 +7,7 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Avatar from '@/components/ui/Avatar';
 import { MoreVertical } from 'lucide-react';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const MONTHS_UZ = ['yan', 'fev', 'mar', 'apr', 'may', 'iyn', 'iyl', 'avg', 'sen', 'okt', 'noy', 'dek'];
 
@@ -22,6 +23,7 @@ function fmtAmount(n: number): string {
 }
 
 export default function OperatorsPage() {
+  const toast = useToast();
   const [operators, setOperators] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [modal, setModal] = useState<'create' | 'edit' | 'salary' | 'delete' | 'actions' | null>(null);
@@ -55,9 +57,9 @@ export default function OperatorsPage() {
   }
 
   async function createOp() {
-    if (!form.name.trim()) return alert('Ism kiriting');
-    if (!form.phone.trim()) return alert('Telefon kiriting');
-    if (!form.password.trim()) return alert('Parol kiriting');
+    if (!form.name.trim()) { toast.warning('Ism kiriting'); return; }
+    if (!form.phone.trim()) { toast.warning('Telefon kiriting'); return; }
+    if (!form.password.trim()) { toast.warning('Parol kiriting'); return; }
     setLoading(true);
     try {
       await api.post('/users', { ...form, role: 'OPERATOR' });
@@ -66,7 +68,7 @@ export default function OperatorsPage() {
       await load();
     } catch (err: any) {
       const msg = err?.response?.data?.message;
-      alert(Array.isArray(msg) ? msg.join('\n') : msg || 'Xatolik yuz berdi');
+      toast.error(Array.isArray(msg) ? msg.join(' ') : msg || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
@@ -74,8 +76,8 @@ export default function OperatorsPage() {
 
   async function updateOp() {
     if (!selected) return;
-    if (!form.name.trim()) return alert('Ism kiriting');
-    if (!form.phone.trim()) return alert('Telefon kiriting');
+    if (!form.name.trim()) { toast.warning('Ism kiriting'); return; }
+    if (!form.phone.trim()) { toast.warning('Telefon kiriting'); return; }
     setLoading(true);
     try {
       const payload: any = { name: form.name, phone: form.phone };
@@ -85,7 +87,7 @@ export default function OperatorsPage() {
       await load();
     } catch (err: any) {
       const msg = err?.response?.data?.message;
-      alert(Array.isArray(msg) ? msg.join('\n') : msg || 'Xatolik yuz berdi');
+      toast.error(Array.isArray(msg) ? msg.join(' ') : msg || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
@@ -99,7 +101,7 @@ export default function OperatorsPage() {
       setModal(null);
       void load();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }

@@ -5,6 +5,7 @@ import api from '@/lib/api';
 import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
 import { Download, Check, Wallet } from 'lucide-react';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const MONTHS_UZ = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
 
@@ -14,6 +15,7 @@ function fmtM(n: number) {
 }
 
 export default function AdminSalaryPage() {
+  const toast = useToast();
   const [report, setReport] = useState<any>(null);
   const [localPct, setLocalPct] = useState<Record<string, number>>({});
   const now = new Date();
@@ -28,8 +30,8 @@ export default function AdminSalaryPage() {
   }
   useEffect(() => { void load(); }, [month]);
 
-  async function confirm() {
-    alert('Maosh tasdiqlandi!');
+  function confirm() {
+    toast.info('Maosh hisoboti ko\'rib chiqildi. Backend tasdiqlash endpointi hali mavjud emas.');
   }
 
   const [y, m] = month.split('-');

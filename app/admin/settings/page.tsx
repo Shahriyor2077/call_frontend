@@ -6,9 +6,11 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import api from '@/lib/api';
+import { useToast } from '@/components/ui/ToastProvider';
 
 export default function AdminSettingsPage() {
   const { user, setUser } = useAuthStore();
+  const toast = useToast();
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ name: '', address: '', phone: '' });
   const [loading, setLoading] = useState(false);
@@ -37,7 +39,7 @@ export default function AdminSettingsPage() {
       setUser(data);
       setModal(false);
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
@@ -45,11 +47,11 @@ export default function AdminSettingsPage() {
 
   async function changePassword() {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      alert('Yangi parollar mos kelmadi');
+      toast.warning('Yangi parollar mos kelmadi');
       return;
     }
     if (passwordForm.newPassword.length < 6) {
-      alert('Parol kamida 6 ta belgidan iborat bo\'lishi kerak');
+      toast.warning('Parol kamida 6 ta belgidan iborat bo\'lishi kerak');
       return;
     }
     setLoading(true);
@@ -59,9 +61,9 @@ export default function AdminSettingsPage() {
       });
       setPasswordModal(false);
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      alert('Parol muvaffaqiyatli o\'zgartirildi');
+      toast.success('Parol muvaffaqiyatli o\'zgartirildi');
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Xatolik yuz berdi');
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }

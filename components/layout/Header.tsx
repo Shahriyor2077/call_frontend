@@ -40,7 +40,7 @@ export default function Header() {
   const centerName = (user as any)?.center?.name ?? 'EduCRM';
 
   return (
-    <header className="h-14 bg-white border-b bord  er-gray-100 flex items-center px-5 gap-4 shrink-0">
+    <header className="h-14 bg-white border-b border-gray-100 flex items-center px-5 gap-4 shrink-0">
       <div className="flex items-center gap-1.5 text-sm">
         <span className="text-gray-400 font-medium">{centerName}</span>
         <span className="text-gray-300">/</span>
