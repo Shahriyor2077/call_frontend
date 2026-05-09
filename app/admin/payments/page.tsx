@@ -44,10 +44,10 @@ function fmtAmount(n: number) {
 }
 
 const PERIODS = [
-  { label: 'Bugun',        getValue: () => { const d = new Date(); return { from: toInputDate(d), to: toInputDate(d) }; } },
-  { label: 'Bu hafta',     getValue: () => { const n = new Date(); const m = new Date(n); m.setDate(n.getDate() - n.getDay() + 1); return { from: toInputDate(m), to: toInputDate(n) }; } },
-  { label: 'Bu oy',        getValue: () => { const n = new Date(); return { from: toInputDate(new Date(n.getFullYear(), n.getMonth(), 1)), to: toInputDate(n) }; } },
-  { label: "O'tgan oy",    getValue: () => { const n = new Date(); return { from: toInputDate(new Date(n.getFullYear(), n.getMonth() - 1, 1)), to: toInputDate(new Date(n.getFullYear(), n.getMonth(), 0)) }; } },
+  { label: 'Bugun', getValue: () => { const d = new Date(); return { from: toInputDate(d), to: toInputDate(d) }; } },
+  { label: 'Bu hafta', getValue: () => { const n = new Date(); const m = new Date(n); m.setDate(n.getDate() - n.getDay() + 1); return { from: toInputDate(m), to: toInputDate(n) }; } },
+  { label: 'Bu oy', getValue: () => { const n = new Date(); return { from: toInputDate(new Date(n.getFullYear(), n.getMonth(), 1)), to: toInputDate(n) }; } },
+  { label: "O'tgan oy", getValue: () => { const n = new Date(); return { from: toInputDate(new Date(n.getFullYear(), n.getMonth() - 1, 1)), to: toInputDate(new Date(n.getFullYear(), n.getMonth(), 0)) }; } },
   { label: 'Yil boshidan', getValue: () => { const n = new Date(); return { from: toInputDate(new Date(n.getFullYear(), 0, 1)), to: toInputDate(n) }; } },
 ];
 
@@ -56,6 +56,7 @@ export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
+  const [operators, setOperators] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -67,6 +68,7 @@ export default function AdminPaymentsPage() {
   const [search, setSearch] = useState('');
   const [filterTeacher, setFilterTeacher] = useState('');
   const [filterGroup, setFilterGroup] = useState('');
+  const [filterOperator, setFilterOperator] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterMethod, setFilterMethod] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -87,12 +89,13 @@ export default function AdminPaymentsPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-      if (filterMethod)  params.append('method', filterMethod);
-      if (filterType)    params.append('type', filterType);
+      if (filterMethod) params.append('method', filterMethod);
+      if (filterType) params.append('type', filterType);
       if (filterTeacher) params.append('teacherId', filterTeacher);
-      if (filterGroup)   params.append('groupId', filterGroup);
-      if (dateFrom)      params.append('from', dateFrom);
-      if (dateTo)        params.append('to', dateTo);
+      if (filterGroup) params.append('groupId', filterGroup);
+      if (filterOperator) params.append('operatorId', filterOperator);
+      if (dateFrom) params.append('from', dateFrom);
+      if (dateTo) params.append('to', dateTo);
       const { data } = await api.get(`/payments?${params}`);
       setPayments(data.data || []);
       setTotalPages(data.meta?.totalPages || 1);
@@ -103,12 +106,19 @@ export default function AdminPaymentsPage() {
   }
 
   useEffect(() => {
-    Promise.all([api.get('/teachers'), api.get('/groups')])
-      .then(([t, g]) => { setTeachers(t.data); setGroups(g.data); })
+    Promise.all([api.get('/teachers'), api.get('/groups'), api.get('/users')])
+      .then(([t, g, u]) => {
+        setTeachers(t.data);
+        setGroups(g.data);
+        setOperators(u.data.filter((user: any) => user.role === 'OPERATOR' || user.role === 'ADMIN'));
+      })
       .catch(console.error);
   }, []);
 
-  useEffect(() => { void load(); }, [page, filterMethod, filterType, filterTeacher, filterGroup, dateFrom, dateTo]);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, filterMethod, filterType, filterTeacher, filterGroup, filterOperator, dateFrom, dateTo]);
 
   function applyPeriod(p: typeof PERIODS[0]) {
     const { from, to } = p.getValue();
@@ -118,7 +128,7 @@ export default function AdminPaymentsPage() {
   function clearPeriod() { setDateFrom(''); setDateTo(''); setSelectedPeriod(''); setPage(1); }
   function clearAll() {
     setFilterTeacher(''); setFilterGroup(''); setFilterType('');
-    setFilterMethod(''); setDateFrom(''); setDateTo('');
+    setFilterMethod(''); setFilterOperator(''); setDateFrom(''); setDateTo('');
     setSelectedPeriod(''); setSearch(''); setPage(1);
   }
 
@@ -135,13 +145,13 @@ export default function AdminPaymentsPage() {
     else methodSums[p.method].sum += Number(p.amount);
   });
 
-  const hasFilters = filterTeacher || filterGroup || filterType || filterMethod || dateFrom || dateTo;
+  const hasFilters = filterTeacher || filterGroup || filterType || filterMethod || filterOperator || dateFrom || dateTo;
 
   const filtered = search
     ? payments.filter(p =>
-        p.student?.name?.toLowerCase().includes(search.toLowerCase()) ||
-        p.student?.phone?.includes(search)
-      )
+      p.student?.name?.toLowerCase().includes(search.toLowerCase()) ||
+      p.student?.phone?.includes(search)
+    )
     : payments;
 
   async function handleRefund() {
@@ -192,8 +202,8 @@ export default function AdminPaymentsPage() {
   const dateRangeLabel = dateFrom && dateTo
     ? `${dateFrom.replace(/-/g, '.')} - ${dateTo.replace(/-/g, '.')}`
     : dateFrom ? `${dateFrom.replace(/-/g, '.')} -`
-    : dateTo   ? `- ${dateTo.replace(/-/g, '.')}`
-    : '';
+      : dateTo ? `- ${dateTo.replace(/-/g, '.')}`
+        : '';
 
   return (
     <div>
@@ -221,7 +231,7 @@ export default function AdminPaymentsPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4 space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
               <input placeholder="Ism yoki telefon..." value={search} onChange={e => setSearch(e.target.value)}
                 className="pl-8 pr-4 py-2 border border-gray-200 rounded-xl text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-400/30" />
             </div>
@@ -248,9 +258,15 @@ export default function AdminPaymentsPage() {
 
             <select value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }}
               className="px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/30">
-              <option value="">To&apos;lovni olgan</option>
+              <option value="">To&apos;lov turi</option>
               <option value="MONTHLY">Oylik</option>
               <option value="ADVANCE">Avans</option>
+            </select>
+
+            <select value={filterOperator} onChange={e => { setFilterOperator(e.target.value); setPage(1); }}
+              className="px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/30 min-w-44">
+              <option value="">To&apos;lovni olgan</option>
+              {operators.map(op => <option key={op.id} value={op.id}>{op.name}</option>)}
             </select>
 
             <select value={filterMethod} onChange={e => { setFilterMethod(e.target.value); setPage(1); }}
@@ -263,7 +279,7 @@ export default function AdminPaymentsPage() {
             </select>
 
             <div className="flex items-center gap-1 border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400 shrink-0"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400 shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
               <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setSelectedPeriod(''); setPage(1); }}
                 className="text-sm border-none outline-none w-28 bg-transparent" />
               <span className="text-gray-300 mx-0.5">—</span>
@@ -297,7 +313,7 @@ export default function AdminPaymentsPage() {
 
       {/* Info text */}
       <p className="text-xs text-gray-500 mb-3 flex items-center gap-1.5">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400 shrink-0"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
         Ko&apos;rsatilayotgan summalar qaytarib berilgan summadan tashqari qolgan summalardir.
       </p>
 
@@ -426,7 +442,7 @@ export default function AdminPaymentsPage() {
                   </td>
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-1 justify-end">
-                      {/* Ko'rish */}
+                      {/* Ko'rish - har doim ishlaydi */}
                       <button
                         onClick={() => setViewModal({ payment: p, rowNum: skip + idx + 1 })}
                         title="Ko'rish"
@@ -434,7 +450,7 @@ export default function AdminPaymentsPage() {
                       >
                         <Eye size={15} />
                       </button>
-                      {/* Izoh */}
+                      {/* Izoh - har doim ishlaydi */}
                       <button
                         onClick={() => { setNotesModal(p); setNotesText(p.notes || ''); }}
                         title="Izoh"
@@ -442,7 +458,7 @@ export default function AdminPaymentsPage() {
                       >
                         <MessageSquare size={15} />
                       </button>
-                      {/* Tahrirlash */}
+                      {/* Tahrirlash - har doim ishlaydi */}
                       <button
                         onClick={() => { setEditModal(p); setEditForm({ amount: String(p.amount), notes: p.notes || '' }); }}
                         title="Tahrirlash"
@@ -450,7 +466,7 @@ export default function AdminPaymentsPage() {
                       >
                         <Pencil size={14} />
                       </button>
-                      {/* Qaytarish */}
+                      {/* Qaytarish - faqat qaytarilgan to'lovlar uchun disabled */}
                       <button
                         onClick={() => setRefundModal(p)}
                         title="Qaytarish"
@@ -472,55 +488,57 @@ export default function AdminPaymentsPage() {
       </div>
 
       {/* View Modal */}
-      <Modal open={!!viewModal} onClose={() => setViewModal(null)} title="To'lov ma'lumotlari" size="sm">
+      <Modal open={!!viewModal} onClose={() => setViewModal(null)} title="Transaksiya" size="sm">
         {viewModal && (() => {
           const p = viewModal.payment;
           const enrollment = p.student?.enrollments?.[0];
           const group = enrollment?.group;
-          const startD = fmtShortDate(group?.startDate);
-          const endD = fmtShortDate(group?.endDate);
-          const debtPeriod = startD && endD ? `${startD}/${endD}` : startD || '—';
           const payDate = new Date(p.paidAt);
-          const payDateStr = `${String(payDate.getDate()).padStart(2,'0')}.${String(payDate.getMonth()+1).padStart(2,'0')}.${payDate.getFullYear()}`;
+          const payDateStr = `${String(payDate.getDate()).padStart(2, '0')}.${String(payDate.getMonth() + 1).padStart(2, '0')}.${payDate.getFullYear()}`;
 
-          const rows: [string, string, string?][] = [
-            ['ID',               String(viewModal.rowNum)],
-            ["O'quvchi",         p.student?.name ?? '—'],
-            ['Guruh',            group?.name ?? '—'],
-            ['Kurs',             group?.course?.name ?? '—'],
-            ['Qarzdorlik davri', debtPeriod],
-            ["O'qituvchi",       group?.teacher?.name ?? '—'],
-            ["To'lov shakli",    METHOD_LABEL[p.method] ?? p.method],
-            ["To'lov turi",      p.type === 'MONTHLY' ? 'Qarzdorlik uchun' : 'Avans'],
-            ["To'lovni olgan",   p.operator?.name ?? '—'],
-            ["To'lov miqdori",   `${fmtAmount(Number(p.amount))} UZS`, p.isRefunded ? 'refunded' : ''],
-            ['Izoh',             p.notes || '—'],
-            ["To'lov sanasi",    payDateStr],
+          const rows: [string, string][] = [
+            ['ID', String(viewModal.rowNum)],
+            ["O'quvchi", p.student?.name ?? '—'],
+            ["To'lov turi", p.type === 'MONTHLY' ? 'Oylik to\'lov' : 'Avans'],
+            ["To'lov shakli", METHOD_LABEL[p.method] ?? p.method],
+            ["To'lovni olgan", p.operator?.name ?? '—', 'blue'],
+            ["To'lov miqdori", `${fmtAmount(Number(p.amount))} UZS`],
+            ['Izoh', p.notes || '—'],
+            ["To'lov sanasi", payDateStr],
           ];
 
           return (
             <div>
-              <div className="divide-y divide-gray-50 rounded-xl border border-gray-100 overflow-hidden mb-4">
-                {rows.map(([label, value, flag]) => (
-                  <div key={label} className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50/60">
-                    <span className="text-sm text-gray-400 shrink-0 w-40">{label}</span>
-                    <span className={`text-sm font-semibold text-right ${
-                      flag === 'refunded' ? 'text-red-500 line-through'
-                      : label === "To'lov miqdori" ? 'text-teal-600'
-                      : label === 'ID' ? 'text-gray-400 font-mono'
-                      : 'text-gray-900'
-                    }`}>
+              <div className="space-y-0 mb-6">
+                {rows.map(([label, value], idx) => (
+                  <div key={label} className={`flex items-start justify-between py-3.5 ${idx !== rows.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                    <span className="text-sm font-medium text-gray-900">{label}</span>
+                    <span className={`text-sm font-semibold text-right ${label === "To'lovni olgan" ? 'text-blue-600'
+                      : label === "To'lov miqdori" ? 'text-gray-900'
+                        : label === 'ID' ? 'text-gray-900'
+                          : 'text-gray-900'
+                      }`}>
                       {value}
                     </span>
                   </div>
                 ))}
               </div>
               {p.isRefunded && (
-                <div className="mb-3 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-sm text-red-600 font-medium">
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-sm text-red-600 font-medium">
                   ⚠️ Bu to&apos;lov qaytarilgan
                 </div>
               )}
-              <Button variant="secondary" onClick={() => setViewModal(null)} className="w-full">Yopish</Button>
+              <div className="flex gap-3">
+                <Button variant="secondary" onClick={() => setViewModal(null)} className="flex-1">Yopish</Button>
+                <Button onClick={() => window.print()} className="flex-1 flex items-center justify-center gap-2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="6 9 6 2 18 2 18 9" />
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                    <rect x="6" y="14" width="12" height="8" />
+                  </svg>
+                  Print
+                </Button>
+              </div>
             </div>
           );
         })()}

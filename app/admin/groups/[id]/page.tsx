@@ -50,6 +50,18 @@ export default function GroupDetailPage() {
   const [unenrollModal, setUnenrollModal] = useState<any>(null);
   const [unenrollLoading, setUnenrollLoading] = useState(false);
 
+  const [detailModal, setDetailModal] = useState(false);
+  const [editModal, setEditModal] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [editForm, setEditForm] = useState({
+    courseId: '', teacherId: '', name: '', type: 'OFFLINE', maxStudents: '',
+    price: '', room: '', platform: '', meetLink: '', address: '',
+    days: [] as string[], startTime: '', endTime: '', startDate: '',
+    duration: '', durationUnit: 'month',
+  });
+
   const [historyStudent, setHistoryStudent] = useState<any>(null);
   const [historyPayments, setHistoryPayments] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -92,7 +104,67 @@ export default function GroupDetailPage() {
     }
   }
 
-  useEffect(() => { void load(); }, [id]);
+  useEffect(() => {
+    void load();
+    void api.get('/courses').then(r => setCourses(r.data)).catch(() => {});
+    void api.get('/teachers').then(r => setTeachers(r.data)).catch(() => {});
+  }, [id]);
+
+  function openEdit() {
+    if (!group) return;
+    setEditForm({
+      courseId: group.courseId || '',
+      teacherId: group.teacherId || '',
+      name: group.name || '',
+      type: group.type || 'OFFLINE',
+      maxStudents: group.maxStudents ? String(group.maxStudents) : '',
+      price: group.price ? String(group.price) : '',
+      room: group.room || '',
+      platform: group.platform || '',
+      meetLink: group.meetLink || '',
+      address: group.address || '',
+      days: group.days || [],
+      startTime: group.startTime || '',
+      endTime: group.endTime || '',
+      startDate: group.startDate ? group.startDate.split('T')[0] : '',
+      duration: group.duration ? String(group.duration) : '',
+      durationUnit: group.durationUnit || 'month',
+    });
+    setEditModal(true);
+  }
+
+  async function saveEdit() {
+    if (!editForm.name.trim()) { toast.warning('Guruh nomini kiriting'); return; }
+    setEditLoading(true);
+    try {
+      await api.put(`/groups/${id}`, {
+        courseId:    editForm.courseId || undefined,
+        teacherId:   editForm.teacherId || undefined,
+        name:        editForm.name.trim(),
+        type:        editForm.type,
+        maxStudents: Number(editForm.maxStudents) || 0,
+        price:       editForm.price ? Number(editForm.price) : undefined,
+        room:        editForm.room || undefined,
+        platform:    editForm.platform || undefined,
+        meetLink:    editForm.meetLink || undefined,
+        address:     editForm.address || undefined,
+        days:        editForm.days,
+        startTime:   editForm.startTime || '',
+        endTime:     editForm.endTime || '',
+        startDate:   editForm.startDate || undefined,
+        duration:    editForm.duration ? Number(editForm.duration) : undefined,
+        durationUnit: editForm.durationUnit || undefined,
+      });
+      toast.success('Saqlandi');
+      setEditModal(false);
+      await load();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join(' ') : msg || 'Xatolik yuz berdi');
+    } finally {
+      setEditLoading(false);
+    }
+  }
 
   async function openHistory(student: any) {
     setHistoryLoading(true);
@@ -225,13 +297,13 @@ export default function GroupDetailPage() {
               >
                 <ArrowLeft size={13} /> Orqaga
               </button>
-              <button className="flex items-center justify-center gap-1.5 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl text-xs font-semibold transition-colors">
+              <button
+                onClick={() => setDetailModal(true)}
+                className="flex items-center justify-center gap-1.5 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl text-xs font-semibold transition-colors"
+              >
                 Batafsil
               </button>
             </div>
-            <button className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors">
-              Davomat
-            </button>
           </div>
         </div>
       </div>
@@ -597,6 +669,126 @@ export default function GroupDetailPage() {
           <div className="flex gap-3 pt-2">
             <Button variant="danger" onClick={() => void unenrollStudent()} loading={unenrollLoading} className="flex-1">Chiqarish</Button>
             <Button variant="secondary" onClick={() => setUnenrollModal(null)} className="flex-1">Bekor</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Detail Modal ── */}
+      <Modal open={detailModal} onClose={() => setDetailModal(false)} title="Guruh haqida" size="sm">
+        {group && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">{group.name}</h2>
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLOR[group.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                {STATUS_LABELS[group.status] ?? group.status}
+              </span>
+            </div>
+
+            <div className="divide-y divide-gray-50">
+              {[
+                { label: 'Kurs',          value: group.course?.name },
+                { label: "O'qituvchi",    value: group.teacher ? `${group.teacher.name}${group.teacher.specialty ? ` · ${group.teacher.specialty}` : ''}` : null },
+                { label: 'Tur',           value: group.type === 'ONLINE' ? 'Online' : 'Offline' },
+                { label: 'Narxi',         value: group.price ? `${Number(group.price).toLocaleString()} UZS` : null },
+                { label: 'Xona / Platforma', value: group.room || group.platform || null },
+                { label: 'Manzil',        value: group.address || null },
+                { label: 'Meet linki',    value: group.meetLink || null },
+                { label: 'Dars kunlari',  value: group.days?.length ? group.days.join(', ') : null },
+                { label: 'Dars vaqti',    value: group.startTime && group.endTime ? `${group.startTime} – ${group.endTime}` : null },
+                { label: 'Boshlanish',    value: group.startDate ? fmtD(group.startDate) : null },
+                { label: 'Davomiyligi',   value: group.duration ? `${group.duration} ${group.durationUnit === 'week' ? 'hafta' : 'oy'}` : null },
+                { label: 'Max talaba',    value: group.maxStudents ? `${students.length} / ${group.maxStudents}` : null },
+                { label: 'Yaratilgan',    value: group.createdAt ? fmtD(group.createdAt) : null },
+              ].map(row => row.value ? (
+                <div key={row.label} className="flex items-start justify-between gap-4 py-2.5">
+                  <span className="text-sm text-gray-400 shrink-0">{row.label}</span>
+                  <span className="text-sm font-medium text-gray-800 text-right">{row.value}</span>
+                </div>
+              ) : null)}
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button onClick={() => { setDetailModal(false); openEdit(); }} variant="secondary" className="flex-1">
+                Tahrirlash
+              </Button>
+              <Button onClick={() => setDetailModal(false)} className="flex-1">Yopish</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Edit Group Modal ── */}
+      <Modal open={editModal} onClose={() => setEditModal(false)} title="Guruhni tahrirlash" size="lg">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium text-gray-700 block mb-1">Kurs</label>
+              <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" value={editForm.courseId} onChange={e => setEditForm(p => ({ ...p, courseId: e.target.value }))}>
+                <option value="">— Tanlang —</option>
+                {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <Input label="Guruh nomi *" value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1">O&apos;qituvchi</label>
+            <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" value={editForm.teacherId} onChange={e => setEditForm(p => ({ ...p, teacherId: e.target.value }))}>
+              <option value="">— Tanlang —</option>
+              {teachers.map(t => <option key={t.id} value={t.id}>{t.name}{t.specialty ? ` (${t.specialty})` : ''}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-sm font-medium text-gray-700 block mb-1">Tur</label>
+              <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" value={editForm.type} onChange={e => setEditForm(p => ({ ...p, type: e.target.value }))}>
+                <option value="OFFLINE">Offline</option>
+                <option value="ONLINE">Online</option>
+              </select>
+            </div>
+            <Input label="Max talabalar" type="number" value={editForm.maxStudents} onChange={e => setEditForm(p => ({ ...p, maxStudents: e.target.value }))} onWheel={e => e.currentTarget.blur()} />
+            <Input label="Narx (so'm)" type="number" value={editForm.price} onChange={e => setEditForm(p => ({ ...p, price: e.target.value }))} onWheel={e => e.currentTarget.blur()} />
+          </div>
+          {editForm.type === 'ONLINE' ? (
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Meet linki" value={editForm.meetLink} onChange={e => setEditForm(p => ({ ...p, meetLink: e.target.value }))} placeholder="https://zoom.us/..." />
+              <Input label="Platforma" value={editForm.platform} onChange={e => setEditForm(p => ({ ...p, platform: e.target.value }))} placeholder="Zoom, Meet..." />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Xona" value={editForm.room} onChange={e => setEditForm(p => ({ ...p, room: e.target.value }))} />
+              <Input label="Manzil" value={editForm.address} onChange={e => setEditForm(p => ({ ...p, address: e.target.value }))} />
+            </div>
+          )}
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-2">Dars kunlari</label>
+            <div className="flex flex-wrap gap-2">
+              {[{value:'DU',label:'Du'},{value:'SE',label:'Se'},{value:'CH',label:'Chor'},{value:'PA',label:'Pa'},{value:'JU',label:'Ju'},{value:'SH',label:'Sh'},{value:'YA',label:'Yk'}].map(d => (
+                <button key={d.value} type="button"
+                  onClick={() => setEditForm(p => ({ ...p, days: p.days.includes(d.value) ? p.days.filter(x => x !== d.value) : [...p.days, d.value] }))}
+                  className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${editForm.days.includes(d.value) ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-300 text-gray-600 hover:border-indigo-400'}`}>
+                  {d.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Input label="Boshlanish vaqti" type="time" value={editForm.startTime} onChange={e => setEditForm(p => ({ ...p, startTime: e.target.value }))} />
+            <Input label="Tugash vaqti" type="time" value={editForm.endTime} onChange={e => setEditForm(p => ({ ...p, endTime: e.target.value }))} />
+            <Input label="Boshlanish sanasi" type="date" value={editForm.startDate} onChange={e => setEditForm(p => ({ ...p, startDate: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Davomiyligi" type="number" value={editForm.duration} onChange={e => setEditForm(p => ({ ...p, duration: e.target.value }))} onWheel={e => e.currentTarget.blur()} />
+            <div>
+              <label className="text-sm font-medium text-gray-700 block mb-1">Birlik</label>
+              <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" value={editForm.durationUnit} onChange={e => setEditForm(p => ({ ...p, durationUnit: e.target.value }))}>
+                <option value="month">Oy</option>
+                <option value="week">Hafta</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button onClick={() => void saveEdit()} loading={editLoading} className="flex-1">Saqlash</Button>
+            <Button variant="secondary" onClick={() => setEditModal(false)} className="flex-1">Bekor</Button>
           </div>
         </div>
       </Modal>

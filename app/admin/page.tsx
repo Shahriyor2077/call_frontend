@@ -176,6 +176,7 @@ export default function AdminDashboard() {
   const [monthlyStudents, setMonthlyStudents] = useState<{ label: string; value: number }[]>([]);
   const [leadDonut, setLeadDonut] = useState<{ label: string; value: number; color: string }[]>([]);
   const [finDonut, setFinDonut] = useState<{ label: string; value: number; color: string }[]>([]);
+  const [genderDonut, setGenderDonut] = useState<{ label: string; value: number; color: string }[]>([]);
 
   const centerName = (user as any)?.center?.name ?? 'Markaz';
 
@@ -265,6 +266,14 @@ export default function AdminDashboard() {
         { label: 'Qarzdor emas', value: students.length - debtors, color: '#3b82f6' },
         { label: 'Qarzdor', value: debtors, color: '#f59e0b' },
       ]);
+
+      /* gender donut */
+      const males = students.filter(s => s.gender === 'MALE').length;
+      const females = students.filter(s => s.gender === 'FEMALE').length;
+      setGenderDonut([
+        { label: 'Erkak', value: males, color: '#3b82f6' },
+        { label: 'Ayol', value: females, color: '#ec4899' },
+      ]);
     }
     void load();
   }, []);
@@ -319,7 +328,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Bar + Donuts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Bar chart */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -352,6 +361,17 @@ export default function AdminDashboard() {
             </div>
           </div>
           <DonutChart data={finDonut} centerLabel="talabalar" />
+        </div>
+
+        {/* Gender donut */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="font-semibold text-gray-900">Jins bo&apos;yicha</p>
+              <p className="text-xs text-gray-400 mt-0.5">Erkak / Ayol nisbati</p>
+            </div>
+          </div>
+          <DonutChart data={genderDonut} centerLabel="jami" />
         </div>
       </div>
     </div>

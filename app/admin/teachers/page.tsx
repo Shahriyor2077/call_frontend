@@ -130,7 +130,7 @@ export default function TeachersPage() {
         <div className="space-y-4">
           <Input label="Ism familiya *" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Shahriyor Zaripov" />
           <Input label="Telefon *" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="+998901234567" />
-          <Input label="Mutaxassislik" value={form.specialty} onChange={e => setForm(p => ({ ...p, specialty: e.target.value }))} placeholder="English, Frontend, Math..." />
+          <Input label="Mutaxassislik" value={form.specialty} onChange={e => setForm(p => ({ ...p, specialty: e.target.value }))} placeholder="Mutaxassislik" />
           <div className="flex gap-3 pt-2">
             <Button onClick={() => void save()} loading={loading} className="flex-1">Saqlash</Button>
             <Button variant="secondary" onClick={() => setModal(false)} className="flex-1">Bekor</Button>

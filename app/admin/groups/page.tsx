@@ -62,20 +62,15 @@ export default function GroupsPage() {
   async function save() {
     if (!form.courseId)            { toast.warning('Kursni tanlang'); return; }
     if (!form.name.trim())         { toast.warning('Guruh nomini kiriting'); return; }
-    if (form.days.length === 0)    { toast.warning('Kamida bitta dars kunini tanlang'); return; }
-    if (!form.startTime)           { toast.warning('Boshlanish vaqtini kiriting'); return; }
-    if (!form.endTime)             { toast.warning('Tugash vaqtini kiriting'); return; }
-    if (!form.maxStudents)         { toast.warning('Maksimal talabalar sonini kiriting'); return; }
-
     setLoading(true);
     const payload = {
       courseId:    form.courseId,
       name:        form.name.trim(),
       type:        form.type,
-      maxStudents: Number(form.maxStudents),
+      maxStudents: Number(form.maxStudents) || 0,
       days:        form.days,
-      startTime:   form.startTime,
-      endTime:     form.endTime,
+      startTime:   form.startTime || '',
+      endTime:     form.endTime || '',
       price:        form.price       ? Number(form.price)    : undefined,
       teacherId:    form.teacherId   || undefined,
       startDate:    form.startDate   || undefined,
@@ -417,8 +412,8 @@ export default function GroupsPage() {
                 <option value="ONLINE">Online</option>
               </select>
             </div>
-            <Input label="Max talabalar *" type="number" value={form.maxStudents} onChange={e => setForm(p => ({ ...p, maxStudents: e.target.value }))} />
-            <Input label="Narx (so'm)" type="number" value={form.price} onChange={e => setForm(p => ({ ...p, price: e.target.value }))} />
+            <Input label="Max talabalar" type="number" value={form.maxStudents} onChange={e => setForm(p => ({ ...p, maxStudents: e.target.value }))} onWheel={e => e.currentTarget.blur()} />
+            <Input label="Narx (so'm)" type="number" value={form.price} onChange={e => setForm(p => ({ ...p, price: e.target.value }))} onWheel={e => e.currentTarget.blur()} />
           </div>
           {form.type === 'ONLINE' ? (
             <div className="grid grid-cols-2 gap-3">
@@ -432,7 +427,7 @@ export default function GroupsPage() {
             </div>
           )}
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-2">Dars kunlari *</label>
+            <label className="text-sm font-medium text-gray-700 block mb-2">Dars kunlari</label>
             <div className="flex flex-wrap gap-2">
               {DAYS_OPTIONS.map(d => (
                 <button key={d.value} type="button" onClick={() => toggleDay(d.value)}
@@ -444,13 +439,13 @@ export default function GroupsPage() {
           </div>
           <div className="grid grid-cols-3 gap-3">
             <Input
-              label="Boshlanish vaqti *"
+              label="Boshlanish vaqti"
               type="time"
               value={form.startTime}
               onChange={e => setForm(p => ({ ...p, startTime: e.target.value }))}
             />
             <Input
-              label="Tugash vaqti *"
+              label="Tugash vaqti"
               type="time"
               value={form.endTime}
               onChange={e => setForm(p => ({ ...p, endTime: e.target.value }))}
@@ -468,6 +463,7 @@ export default function GroupsPage() {
               type="number"
               value={form.duration}
               onChange={e => setForm(p => ({ ...p, duration: e.target.value }))}
+              onWheel={e => e.currentTarget.blur()}
             />
             <div>
               <label className="text-sm font-medium text-gray-700 block mb-1">Birlik</label>
