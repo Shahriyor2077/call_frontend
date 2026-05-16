@@ -9,6 +9,7 @@ import api from '@/lib/api';
 import { parseLoginError } from '@/lib/parseLoginError';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import Toast from '@/components/ui/Toast';
 
 export default function AdminLoginPage() {
@@ -90,19 +91,12 @@ export default function AdminLoginPage() {
                 Yuklanmoqda...
               </div>
             ) : (
-              <select
-                value={centerId}
-                onChange={(e) => setCenterId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
-                required
-              >
+              <Select value={centerId} onChange={(e) => setCenterId(e.target.value)} required>
                 <option value="">— Markazni tanlang —</option>
                 {centers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
-              </select>
+              </Select>
             )}
           </div>
 

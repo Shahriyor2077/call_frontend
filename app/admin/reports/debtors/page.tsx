@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import { useToast } from '@/components/ui/ToastProvider';
 import { AlertTriangle, Phone, Users, Search, ChevronDown, X } from 'lucide-react';
 
@@ -20,6 +22,7 @@ function debtBadge(debt: number) {
 
 export default function DebtorsReportPage() {
   const toast = useToast();
+  const router = useRouter();
   const [debtors, setDebtors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -28,6 +31,7 @@ export default function DebtorsReportPage() {
   const [sortOpen, setSortOpen] = useState(false);
   const [paymentStudent, setPaymentStudent] = useState<any>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDiscount, setPaymentDiscount] = useState('');
   const [payLoading, setPayLoading] = useState(false);
 
   async function load() {
@@ -68,9 +72,10 @@ export default function DebtorsReportPage() {
     }
     setPayLoading(true);
     try {
-      await api.post('/payments', {
+      const { data } = await api.post('/payments', {
         studentId: paymentStudent.id,
         amount: Number(paymentAmount),
+        discountAmount: Number(paymentDiscount) || 0,
         type: 'MONTHLY',
         method: 'CASH',
         paidAt: new Date().toISOString(),
@@ -78,7 +83,8 @@ export default function DebtorsReportPage() {
       toast.success('To\'lov kiritildi');
       setPaymentStudent(null);
       setPaymentAmount('');
-      void load();
+      setPaymentDiscount('');
+      router.push(`/admin/payments/${data.id}/print`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
@@ -89,7 +95,7 @@ export default function DebtorsReportPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-start justify-between mb-5">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Qarzdorlar ro&apos;yxati</h1>
           <p className="text-sm text-gray-400 mt-0.5">Faol guruhlarda to&apos;liq to&apos;lamagan talabalar</p>
@@ -157,20 +163,17 @@ export default function DebtorsReportPage() {
               </div>
 
               {/* Group filter */}
-              <select
-                value={groupFilter}
-                onChange={e => setGroupFilter(e.target.value)}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-300 bg-white text-gray-700">
+              <Select value={groupFilter} onChange={e => setGroupFilter(e.target.value)}>
                 <option value="">Barcha guruhlar</option>
                 {allGroups.map((g: any) => (
                   <option key={g.id} value={g.id}>{g.name}</option>
                 ))}
-              </select>
+              </Select>
 
               {/* Sort */}
               <div className="relative">
                 <button onClick={() => setSortOpen(v => !v)}
-                  className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                  className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 cursor-pointer">
                   {sortBy === 'debt' ? 'Qarz bo\'yicha' : 'Ism bo\'yicha'}
                   <ChevronDown size={13} />
                 </button>
@@ -178,7 +181,7 @@ export default function DebtorsReportPage() {
                   <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 z-30 min-w-36">
                     {(['debt', 'name'] as const).map(s => (
                       <button key={s} onClick={() => { setSortBy(s); setSortOpen(false); }}
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 ${sortBy === s ? 'text-indigo-700 font-semibold' : 'text-gray-700'}`}>
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 cursor-pointer ${sortBy === s ? 'text-indigo-700 font-semibold' : 'text-gray-700'}`}>
                         {s === 'debt' ? "Qarz bo'yicha" : "Ism bo'yicha"}
                       </button>
                     ))}
@@ -267,7 +270,7 @@ export default function DebtorsReportPage() {
                         <td className="px-5 py-3.5 text-center">
                           <button
                             onClick={() => { setPaymentStudent(d); setPaymentAmount(String(d.debt > 0 ? Math.round(d.debt) : '')); }}
-                            className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
+                            className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer">
                             To&apos;lov
                           </button>
                         </td>
@@ -308,6 +311,13 @@ export default function DebtorsReportPage() {
             type="number"
             value={paymentAmount}
             onChange={e => setPaymentAmount(e.target.value)}
+            placeholder="0"
+          />
+          <Input
+            label="Chegirma (UZS)"
+            type="number"
+            value={paymentDiscount}
+            onChange={e => setPaymentDiscount(e.target.value)}
             placeholder="0"
           />
           <div className="flex gap-3 pt-2">

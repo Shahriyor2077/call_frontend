@@ -25,11 +25,11 @@ function getInitials(name: string) {
 
 interface AvatarProps {
   name: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 export default function Avatar({ name, size = 'md' }: AvatarProps) {
-  const sizeClass = size === 'sm' ? 'w-7 h-7 text-xs' : size === 'lg' ? 'w-11 h-11 text-base' : 'w-9 h-9 text-sm';
+  const sizeClass = size === 'sm' ? 'w-7 h-7 text-xs' : size === 'lg' ? 'w-11 h-11 text-base' : size === 'xl' ? 'w-16 h-16 text-xl' : 'w-9 h-9 text-sm';
   return (
     <div className={`${sizeClass} ${getColor(name)} rounded-full flex items-center justify-center text-white font-semibold shrink-0`}>
       {getInitials(name)}

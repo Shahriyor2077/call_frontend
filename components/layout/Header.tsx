@@ -37,7 +37,7 @@ export default function Header() {
   const pathname = usePathname();
   const { user } = useAuthStore();
   const page = breadcrumbMap[pathname] ?? 'Sahifa';
-  const centerName = (user as any)?.center?.name ?? 'EduCRM';
+  const centerName = (user as any)?.center?.name ?? 'SmartHub';
 
   return (
     <header className="h-14 bg-white border-b border-gray-100 flex items-center px-5 gap-4 shrink-0">

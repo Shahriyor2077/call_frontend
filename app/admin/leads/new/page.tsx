@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import { ArrowLeft } from 'lucide-react';
 import { useToast } from '@/components/ui/ToastProvider';
 
@@ -29,8 +30,8 @@ export default function NewLeadPage() {
             try {
                 const { data } = await api.get('/users?role=OPERATOR');
                 setOperators(data);
-            } catch (err) {
-                console.error('Operatorlarni yuklashda xato:', err);
+            } catch {
+                toast.error('Operatorlar yuklanmadi');
             }
         }
         void loadOperators();
@@ -44,8 +45,7 @@ export default function NewLeadPage() {
         try {
             await api.post('/leads', form);
             router.push('/admin/leads');
-        } catch (err) {
-            console.error('Lead yaratishda xato:', err);
+        } catch {
             toast.error('Xatolik yuz berdi');
         } finally {
             setLoading(false);
@@ -88,41 +88,29 @@ export default function NewLeadPage() {
                         onChange={e => setForm(p => ({ ...p, interest: e.target.value }))}
                     />
 
-                    <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1.5">
-                            Manba
-                        </label>
-                        <select
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            value={form.source}
-                            onChange={e => setForm(p => ({ ...p, source: e.target.value }))}
-                        >
-                            <option value="">— Tanlang —</option>
-                            {SOURCE_OPTIONS.map(s => (
-                                <option key={s} value={s}>
-                                    {s}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    <Select
+                        label="Manba"
+                        value={form.source}
+                        onChange={e => setForm(p => ({ ...p, source: e.target.value }))}
+                    >
+                        <option value="">— Tanlang —</option>
+                        {SOURCE_OPTIONS.map(s => (
+                            <option key={s} value={s}>{s}</option>
+                        ))}
+                    </Select>
 
                     {operators.length > 0 && (
                         <div>
-                            <label className="text-sm font-medium text-gray-700 block mb-1.5">
-                                Operator (ixtiyoriy)
-                            </label>
-                            <select
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            <Select
+                                label="Operator (ixtiyoriy)"
                                 value={form.operatorId}
                                 onChange={e => setForm(p => ({ ...p, operatorId: e.target.value }))}
                             >
                                 <option value="">— O'zim —</option>
                                 {operators.map(op => (
-                                    <option key={op.id} value={op.id}>
-                                        {op.name}
-                                    </option>
+                                    <option key={op.id} value={op.id}>{op.name}</option>
                                 ))}
-                            </select>
+                            </Select>
                             <p className="text-xs text-gray-400 mt-1">
                                 Agar tanlamasangiz, lead sizga biriktiriladi
                             </p>

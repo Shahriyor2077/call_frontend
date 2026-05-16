@@ -6,7 +6,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Avatar from '@/components/ui/Avatar';
-import { MoreVertical } from 'lucide-react';
+import { Pencil, DollarSign, Ban, CheckCircle2, Trash2, Search, Users, UserCheck, UserX, MoreVertical } from 'lucide-react';
 import { useToast } from '@/components/ui/ToastProvider';
 
 const MONTHS_UZ = ['yan', 'fev', 'mar', 'apr', 'may', 'iyn', 'iyl', 'avg', 'sen', 'okt', 'noy', 'dek'];
@@ -26,12 +26,16 @@ export default function OperatorsPage() {
   const toast = useToast();
   const [operators, setOperators] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
-  const [modal, setModal] = useState<'create' | 'edit' | 'salary' | 'delete' | 'actions' | null>(null);
+  const [modal, setModal] = useState<'create' | 'edit' | 'salary' | 'delete' | null>(null);
   const [selected, setSelected] = useState<any>(null);
   const [form, setForm] = useState({ name: '', phone: '', password: '' });
   const [percentage, setPercentage] = useState('10');
   const [fixedAmount, setFixedAmount] = useState('0');
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 15;
 
   async function load() {
     const [u, l] = await Promise.all([
@@ -54,6 +58,7 @@ export default function OperatorsPage() {
     setSelected(op);
     setForm({ name: op.name, phone: op.phone, password: '' });
     setModal('edit');
+    setMenuOpen(null);
   }
 
   async function createOp() {
@@ -119,8 +124,9 @@ export default function OperatorsPage() {
     setLoading(false);
   }
 
-  async function toggleBlock(u: any) {
-    await api.put(`/users/${u.id}`, { isActive: !u.isActive });
+  async function toggleBlock(op: any) {
+    await api.put(`/users/${op.id}`, { isActive: !op.isActive });
+    setMenuOpen(null);
     void load();
   }
 
@@ -132,104 +138,216 @@ export default function OperatorsPage() {
     return { totalLeads: opLeads.length, enrolled, conv };
   }
 
+  const total = operators.length;
+  const activeCount = operators.filter(o => o.isActive).length;
+  const blockedCount = operators.filter(o => !o.isActive).length;
+
+  const filtered = search
+    ? operators.filter(o => o.name?.toLowerCase().includes(search.toLowerCase()) || o.phone?.includes(search))
+    : operators;
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const gradients = [
+    ['from-indigo-500', 'to-violet-600'],
+    ['from-emerald-400', 'to-teal-600'],
+    ['from-rose-400', 'to-pink-600'],
+    ['from-amber-400', 'to-orange-500'],
+    ['from-sky-400', 'to-blue-600'],
+    ['from-violet-500', 'to-purple-700'],
+  ];
+
   return (
     <div>
-      <div className="flex items-start justify-between mb-2">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Operatorlar</h1>
           <p className="text-sm text-gray-400 mt-0.5">Sotuv jamoasi va ularning ko&apos;rsatkichlari.</p>
         </div>
-        <Button onClick={openCreate}>+ Yangi operator</Button>
-      </div>
-
-      <div className="bg-white rounded-xl border overflow-hidden mt-5">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">OPERATOR</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">TELEFON</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">LEADLAR</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">MAOSH</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">HOLAT</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">QO&apos;SHILGAN</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide w-12"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {operators.map(op => {
-              const { totalLeads } = getOpStats(op);
-              return (
-                <tr key={op.id} className={`hover:bg-gray-50 ${!op.isActive ? 'opacity-60' : ''}`}>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar name={op.name} size="sm" />
-                      <span className="font-medium text-gray-900">{op.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 text-gray-500">{op.phone}</td>
-                  <td className="px-5 py-4 font-semibold text-gray-900">{totalLeads}</td>
-                  <td className="px-5 py-4">
-                    <div className="text-xs">
-                      <span className="text-gray-700 font-medium">{Number(op.salarySetting?.percentage ?? 10)}%</span>
-                      {Number(op.salarySetting?.fixedAmount ?? 0) > 0 && (
-                        <span className="text-gray-400"> + {fmtAmount(Number(op.salarySetting?.fixedAmount))}</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${op.isActive ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-600'}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${op.isActive ? 'bg-green-500' : 'bg-amber-500'}`} />
-                      {op.isActive ? 'Faol' : 'Bloklangan'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-gray-400 text-xs">{fmtDate(op.createdAt)}</td>
-                  <td className="px-5 py-4">
-                    <button
-                      onClick={() => { setSelected(op); setModal('actions'); }}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400"
-                    >
-                      <MoreVertical size={15} />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-            {operators.length === 0 && (
-              <tr><td colSpan={7} className="px-5 py-12 text-center text-gray-400">Hali operatorlar yo&apos;q</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Actions Modal */}
-      <Modal open={modal === 'actions'} onClose={() => setModal(null)} title={selected?.name ?? 'Operator'} size="sm">
-        <div className="space-y-3">
-          <Button onClick={() => { openEdit(selected); setModal('edit'); }} variant="secondary" className="w-full">
-            Tahrirlash
-          </Button>
-          <Button
-            onClick={() => {
-              setPercentage(String(selected?.salarySetting?.percentage ?? 10));
-              setFixedAmount(String(selected?.salarySetting?.fixedAmount ?? 0));
-              setModal('salary');
-            }}
-            variant="secondary"
-            className="w-full"
-          >
-            Maosh sozlamalari
-          </Button>
-          <Button
-            onClick={() => { toggleBlock(selected); setModal(null); }}
-            variant={selected?.isActive ? 'danger' : 'secondary'}
-            className="w-full"
-          >
-            {selected?.isActive ? 'Bloklash' : 'Yoqish'}
-          </Button>
-          <Button onClick={() => setModal('delete')} variant="danger" className="w-full">
-            O&apos;chirish
-          </Button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search}
+              onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+              placeholder="Qidirish..."
+              className="pl-8 pr-3 py-2 border border-gray-200 rounded-xl text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
+            />
+          </div>
+          <Button onClick={openCreate}>+ Yangi operator</Button>
         </div>
-      </Modal>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white mb-3 shadow-sm">
+            <Users size={18} />
+          </div>
+          <p className="text-2xl font-bold text-gray-900 leading-none mb-1">{total}</p>
+          <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Jami operatorlar</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white mb-3 shadow-sm">
+            <UserCheck size={18} />
+          </div>
+          <p className="text-2xl font-bold text-gray-900 leading-none mb-1">{activeCount}</p>
+          <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Faol</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-rose-400 to-red-600 flex items-center justify-center text-white mb-3 shadow-sm">
+            <UserX size={18} />
+          </div>
+          <p className="text-2xl font-bold text-gray-900 leading-none mb-1">{blockedCount}</p>
+          <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Bloklangan</p>
+        </div>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mb-4 bg-white rounded-xl border border-gray-100 px-4 py-2.5 shadow-sm">
+          <p className="text-sm text-gray-500">Sahifa {currentPage} / {totalPages} · Jami {filtered.length} ta</p>
+          <div className="flex gap-2">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
+              ← Oldingi
+            </button>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
+              Keyingi →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Card grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {paginated.map((op, idx) => {
+          const { totalLeads, enrolled, conv } = getOpStats(op);
+          const [gFrom, gTo] = gradients[idx % gradients.length];
+          return (
+            <div
+              key={op.id}
+              className={`bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all group relative ${!op.isActive ? 'opacity-70' : ''}`}
+            >
+              {/* Card header */}
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-12 h-12 rounded-xl bg-linear-to-br ${gFrom} ${gTo} flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform shrink-0 text-base font-bold`}>
+                    {op.name?.charAt(0)?.toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-900 truncate">{op.name}</p>
+                    <p className="text-xs text-gray-400 truncate">{op.phone}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${op.isActive ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-600'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${op.isActive ? 'bg-green-500' : 'bg-amber-500'}`} />
+                    {op.isActive ? 'Faol' : 'Bloklangan'}
+                  </span>
+                  <div className="relative">
+                    <button
+                      onClick={e => { e.stopPropagation(); setMenuOpen(menuOpen === op.id ? null : op.id); }}
+                      className="w-7 h-7 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 transition-colors cursor-pointer"
+                    >
+                      <MoreVertical size={14} />
+                    </button>
+                    {menuOpen === op.id && (
+                      <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-20 w-40">
+                        <button onClick={() => openEdit(op)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700 cursor-pointer">Tahrirlash</button>
+                        <button
+                          onClick={() => { setSelected(op); setPercentage(String(op.salarySetting?.percentage ?? 10)); setFixedAmount(String(op.salarySetting?.fixedAmount ?? 0)); setModal('salary'); setMenuOpen(null); }}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700 cursor-pointer"
+                        >
+                          Maosh sozlamalari
+                        </button>
+                        <button onClick={() => void toggleBlock(op)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700 cursor-pointer">
+                          {op.isActive ? 'Bloklash' : 'Faollashtirish'}
+                        </button>
+                        <div className="border-t mx-2 my-1" />
+                        <button onClick={() => { setSelected(op); setModal('delete'); setMenuOpen(null); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer">O&apos;chirish</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Conversion */}
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs text-gray-400 w-20 shrink-0">Konversiya</span>
+                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${conv >= 60 ? 'bg-emerald-500' : conv >= 30 ? 'bg-amber-400' : 'bg-rose-400'}`}
+                    style={{ width: `${conv}%` }}
+                  />
+                </div>
+                <span className="text-xs font-semibold text-gray-700 w-8 text-right">{conv}%</span>
+              </div>
+
+              {/* Salary + date */}
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs text-gray-400">
+                  Maosh: <span className="font-medium text-gray-700">{Number(op.salarySetting?.percentage ?? 10)}%</span>
+                  {Number(op.salarySetting?.fixedAmount ?? 0) > 0 && (
+                    <span className="text-gray-400"> + {fmtAmount(Number(op.salarySetting?.fixedAmount))}</span>
+                  )}
+                </p>
+                <p className="text-xs text-gray-400">{fmtDate(op.createdAt)}</p>
+              </div>
+
+              <div className="border-t border-gray-50 mb-4" />
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="text-center p-2 bg-gray-50 rounded-xl">
+                  <p className="text-lg font-bold text-gray-900 leading-none">{totalLeads}</p>
+                  <p className="text-[10px] text-gray-400 mt-1 font-medium">Leadlar</p>
+                </div>
+                <div className="text-center p-2 bg-gray-50 rounded-xl">
+                  <p className="text-lg font-bold text-gray-900 leading-none">{enrolled}</p>
+                  <p className="text-[10px] text-gray-400 mt-1 font-medium">Yozildi</p>
+                </div>
+                <div className="text-center p-2 bg-gray-50 rounded-xl">
+                  <p className="text-lg font-bold text-gray-900 leading-none">{conv}%</p>
+                  <p className="text-[10px] text-gray-400 mt-1 font-medium">Konv.</p>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-1.5">
+                {[
+                  { label: 'Tahrirlash', icon: <Pencil size={14} />, cls: 'bg-amber-500 hover:bg-amber-600', onClick: () => openEdit(op) },
+                  { label: 'Maosh', icon: <DollarSign size={14} />, cls: 'bg-indigo-500 hover:bg-indigo-600', onClick: () => { setSelected(op); setPercentage(String(op.salarySetting?.percentage ?? 10)); setFixedAmount(String(op.salarySetting?.fixedAmount ?? 0)); setModal('salary'); } },
+                  { label: op.isActive ? 'Bloklash' : 'Yoqish', icon: op.isActive ? <Ban size={14} /> : <CheckCircle2 size={14} />, cls: op.isActive ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600', onClick: () => void toggleBlock(op) },
+                  { label: "O'chirish", icon: <Trash2 size={14} />, cls: 'bg-red-500 hover:bg-red-600', onClick: () => { setSelected(op); setModal('delete'); } },
+                ].map(btn => (
+                  <div key={btn.label} className="relative group/tip flex-1">
+                    <button
+                      onClick={btn.onClick}
+                      className={`w-full h-9 flex items-center justify-center rounded-xl text-white transition-colors shadow-sm cursor-pointer ${btn.cls}`}
+                    >
+                      {btn.icon}
+                    </button>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                      {btn.label}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {paginated.length === 0 && (
+          <div className="col-span-3 text-center py-16 text-gray-400">
+            <Users size={36} className="mx-auto mb-3 text-gray-300" />
+            <p className="font-medium">Hali operatorlar yo&apos;q</p>
+          </div>
+        )}
+      </div>
 
       <Modal open={modal === 'create'} onClose={() => setModal(null)} title="Yangi operator">
         <div className="space-y-4">
@@ -258,17 +376,15 @@ export default function OperatorsPage() {
       <Modal open={modal === 'delete'} onClose={() => setModal(null)} title="Operatorni o'chirish">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            <span className="font-semibold text-gray-900">{selected?.name}</span> operatorini o'chirishni xohlaysizmi?
+            <span className="font-semibold text-gray-900">{selected?.name}</span> operatorini o&apos;chirishni xohlaysizmi?
           </p>
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
             <p className="text-sm text-amber-800">
-              ⚠️ Bu amal qaytarilmaydi. Operator va unga tegishli barcha ma'lumotlar o'chiriladi.
+              ⚠️ Bu amal qaytarilmaydi. Operator va unga tegishli barcha ma&apos;lumotlar o&apos;chiriladi.
             </p>
           </div>
           <div className="flex gap-3 pt-2">
-            <Button variant="danger" onClick={() => void deleteOp()} loading={loading} className="flex-1">
-              O'chirish
-            </Button>
+            <Button variant="danger" onClick={() => void deleteOp()} loading={loading} className="flex-1">O&apos;chirish</Button>
             <Button variant="secondary" onClick={() => setModal(null)} className="flex-1">Bekor</Button>
           </div>
         </div>
@@ -277,44 +393,23 @@ export default function OperatorsPage() {
       <Modal open={modal === 'salary'} onClose={() => setModal(null)} title={`Maosh sozlamalari — ${selected?.name}`}>
         <div className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Sotuvdan foiz (1–50%)
-            </label>
-            <Input
-              type="number"
-              min="1"
-              max="50"
-              value={percentage}
-              onChange={e => setPercentage(e.target.value)}
-              placeholder="10"
-            />
-            <p className="text-xs text-gray-500 mt-1.5">
-              Operator qabul qilgan to&apos;lovlardan oladigan foiz
-            </p>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Sotuvdan foiz (1–50%)</label>
+            <Input type="number" min="1" max="50" value={percentage} onChange={e => setPercentage(e.target.value)} placeholder="10" />
+            <p className="text-xs text-gray-500 mt-1.5">Operator qabul qilgan to&apos;lovlardan oladigan foiz</p>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Oylik maosh (so&apos;m)
-            </label>
-            <Input
-              type="number"
-              min="0"
-              value={fixedAmount}
-              onChange={e => setFixedAmount(e.target.value)}
-              placeholder="0"
-            />
-            <p className="text-xs text-gray-500 mt-1.5">
-              Har oyda qat&apos;iy to&apos;lanadigan summa (sotuvdan qat&apos;iy nazar)
-            </p>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Oylik maosh (so&apos;m)</label>
+            <Input type="number" min="0" value={fixedAmount} onChange={e => setFixedAmount(e.target.value)} placeholder="0" />
+            <p className="text-xs text-gray-500 mt-1.5">Har oyda qat&apos;iy to&apos;lanadigan summa (sotuvdan qat&apos;iy nazar)</p>
           </div>
-
           <div className="flex gap-3 pt-2">
             <Button onClick={() => void updateSalary()} loading={loading} className="flex-1">Saqlash</Button>
             <Button variant="secondary" onClick={() => setModal(null)} className="flex-1">Bekor</Button>
           </div>
         </div>
       </Modal>
+
+      {menuOpen && <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(null)} />}
     </div>
   );
 }

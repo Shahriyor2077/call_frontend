@@ -7,6 +7,7 @@ import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import api from '@/lib/api';
 import { useToast } from '@/components/ui/ToastProvider';
+import { Phone, MapPin, Building2, ShieldCheck, KeyRound, Pencil } from 'lucide-react';
 
 export default function AdminSettingsPage() {
   const { user, setUser } = useAuthStore();
@@ -34,7 +35,6 @@ export default function AdminSettingsPage() {
         name: form.name,
         address: form.address
       });
-      // Refresh user data
       const { data } = await api.get('/auth/me');
       setUser(data);
       setModal(false);
@@ -51,7 +51,7 @@ export default function AdminSettingsPage() {
       return;
     }
     if (passwordForm.newPassword.length < 6) {
-      toast.warning('Parol kamida 6 ta belgidan iborat bo\'lishi kerak');
+      toast.warning("Parol kamida 6 ta belgidan iborat bo'lishi kerak");
       return;
     }
     setLoading(true);
@@ -61,7 +61,7 @@ export default function AdminSettingsPage() {
       });
       setPasswordModal(false);
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      toast.success('Parol muvaffaqiyatli o\'zgartirildi');
+      toast.success("Parol muvaffaqiyatli o'zgartirildi");
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
@@ -69,51 +69,77 @@ export default function AdminSettingsPage() {
     }
   }
 
+  const initials = user?.name
+    ? user.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+    : 'A';
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Sozlamalar</h1>
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => setPasswordModal(true)}>
-            Parolni o'zgartirish
-          </Button>
-          <Button onClick={openEdit}>
-            Tahrirlash
-          </Button>
-        </div>
-      </div>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Sozlamalar</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Markaz ma'lumotlari */}
-        <div className="bg-white rounded-xl p-6 border shadow-sm">
-          <h2 className="font-semibold mb-4">Markaz ma'lumotlari</h2>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between py-2 border-b">
-              <span className="text-gray-500">Markaz nomi</span>
-              <span className="font-medium">{user?.center?.name ?? '—'}</span>
+        {/* Profile card */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-5">Profil</h2>
+
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-20 h-20 rounded-2xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-2xl font-bold shadow-md mb-4 select-none">
+              {initials}
             </div>
-            <div className="flex justify-between py-2 border-b">
-              <span className="text-gray-500">Manzil</span>
-              <span>{user?.center?.address ?? '—'}</span>
+            <p className="text-xl font-bold text-gray-900 leading-tight">{user?.name}</p>
+            <div className="flex items-center gap-1.5 mt-1 text-gray-500 text-sm">
+              <Phone size={13} className="text-gray-400" />
+              <span>{user?.phone}</span>
             </div>
+            <span className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold border border-indigo-100">
+              <ShieldCheck size={13} />
+              Admin
+            </span>
+          </div>
+
+          <div className="mt-auto">
+            <button
+              onClick={() => setPasswordModal(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+            >
+              <KeyRound size={15} className="text-gray-400" />
+              Parolni o&apos;zgartirish
+            </button>
           </div>
         </div>
 
-        {/* Admin ma'lumotlari */}
-        <div className="bg-white rounded-xl p-6 border shadow-sm">
-          <h2 className="font-semibold mb-4">Admin ma'lumotlari</h2>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between py-2 border-b">
-              <span className="text-gray-500">Ism</span>
-              <span className="font-medium">{user?.name}</span>
+        {/* Center card */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Markaz ma&apos;lumotlari</h2>
+            <button
+              onClick={openEdit}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
+            >
+              <Pencil size={12} />
+              Tahrirlash
+            </button>
+          </div>
+
+          <div className="flex-1 space-y-4">
+            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-gray-50 border border-gray-100">
+              <div className="w-9 h-9 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+                <Building2 size={16} />
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-0.5">Markaz nomi</p>
+                <p className="text-sm font-semibold text-gray-900">{user?.center?.name ?? '—'}</p>
+              </div>
             </div>
-            <div className="flex justify-between py-2 border-b">
-              <span className="text-gray-500">Telefon</span>
-              <span>{user?.phone}</span>
-            </div>
-            <div className="flex justify-between py-2">
-              <span className="text-gray-500">Rol</span>
-              <span className="font-medium">Admin</span>
+
+            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-gray-50 border border-gray-100">
+              <div className="w-9 h-9 rounded-xl bg-linear-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+                <MapPin size={16} />
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-0.5">Manzil</p>
+                <p className="text-sm font-semibold text-gray-900">{user?.center?.address ?? '—'}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -162,7 +188,7 @@ export default function AdminSettingsPage() {
           />
           <div className="flex gap-3 pt-2">
             <Button onClick={() => void changePassword()} loading={loading} className="flex-1">
-              O'zgartirish
+              O&apos;zgartirish
             </Button>
             <Button variant="secondary" onClick={() => setPasswordModal(false)} className="flex-1">
               Bekor

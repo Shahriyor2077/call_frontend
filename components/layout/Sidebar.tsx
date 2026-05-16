@@ -3,11 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
-import { Role } from '@/types';
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, Calendar,
   Target, Wallet, UserCog, School, DollarSign, Settings,
-  LogOut, ChevronDown, ChevronLeft, ChevronRight,
+  LogOut, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import Avatar from '@/components/ui/Avatar';
 import { useState, useEffect } from 'react';
@@ -19,20 +18,37 @@ type NavSection = { title: string; items: NavItem[] };
 function buildAdminSections(): NavSection[] {
   return [
     {
-      title: "O'QUV",
+      title: "BOSH SAHIFA",
       items: [
         { href: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
+      ],
+    },
+    {
+      title: "TA'LIM",
+      items: [
         { href: '/admin/courses', label: 'Kurslar', icon: <BookOpen size={16} />, countKey: 'courses' },
         { href: '/admin/groups', label: 'Guruhlar', icon: <Users size={16} />, countKey: 'groups' },
-        { href: '/admin/students', label: 'Talabalar', icon: <GraduationCap size={16} />, countKey: 'students' },
         { href: '/admin/schedule', label: 'Jadval', icon: <Calendar size={16} /> },
       ],
     },
     {
-      title: 'SOTUV',
+      title: 'TALABALAR',
       items: [
+        { href: '/admin/students', label: "O'quvchilar", icon: <GraduationCap size={16} />, countKey: 'students' },
         { href: '/admin/leads', label: 'Leadlar', icon: <Target size={16} />, countKey: 'leads' },
+      ],
+    },
+    {
+      title: 'MOLIYA',
+      items: [
         { href: '/admin/payments', label: "To'lovlar", icon: <Wallet size={16} /> },
+      ],
+    },
+    {
+      title: 'HISOBOTLAR',
+      items: [
+        { href: '/admin/reports/finance', label: 'Moliya', icon: <DollarSign size={16} /> },
+        { href: '/admin/reports/debtors', label: 'Qarzdorlar', icon: <Wallet size={16} /> },
       ],
     },
     {
@@ -103,7 +119,13 @@ function buildOperatorSections(): NavSection[] {
   ];
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  mobileOpen = false,
+  onMobileClose = () => {},
+}: {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}) {
   const { user, logout } = useAuthStore();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -149,20 +171,21 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className={`${collapsed ? 'w-14' : 'w-[220px]'} h-full bg-white border-r border-gray-100 flex flex-col shrink-0 transition-all duration-200`}>
+    <aside className={[
+      'flex flex-col h-full bg-white border-r border-gray-100 shrink-0 transition-all duration-200',
+      'fixed md:relative inset-y-0 left-0 z-40 md:z-auto',
+      'w-55',
+      collapsed ? 'md:w-14' : 'md:w-55',
+      mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+    ].join(' ')}>
       {/* Logo */}
       <div className={`flex items-center h-14 border-b border-gray-100 px-3 ${collapsed ? 'justify-center' : 'justify-between'}`}>
         {!collapsed && (
-          <div className="flex items-center gap-2 overflow-hidden">
-            <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
-              <span className="text-white text-xs font-bold">EC</span>
-            </div>
-            <span className="text-sm font-bold text-gray-900 truncate">EduCRM</span>
-          </div>
+          <span className="text-[15px] font-bold text-gray-900">SmartHub</span>
         )}
         <button
           onClick={() => setCollapsed(v => !v)}
-          className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+          className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0 cursor-pointer"
         >
           {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
@@ -170,13 +193,12 @@ export default function Sidebar() {
 
       {user.role === 'ADMIN' && !collapsed && (
         <div className="px-3 py-2.5 border-b border-gray-100">
-          <button className="flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+          <div className="flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg">
             <div className="w-7 h-7 bg-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center text-xs font-bold shrink-0">
               {initials}
             </div>
             <span className="text-sm font-medium text-gray-800 flex-1 text-left truncate">{centerName}</span>
-            <ChevronDown size={13} className="text-gray-400 shrink-0" />
-          </button>
+          </div>
         </div>
       )}
 
@@ -197,6 +219,7 @@ export default function Sidebar() {
                     <Link
                       href={item.href}
                       title={collapsed ? item.label : undefined}
+                      onClick={onMobileClose}
                       className={`flex items-center gap-2.5 px-2 py-2 rounded-lg text-[13px] transition-colors ${active ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
                         } ${collapsed ? 'justify-center' : ''}`}
                     >

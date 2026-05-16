@@ -7,6 +7,7 @@ import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import { useToast } from '@/components/ui/ToastProvider';
 import {
   ArrowLeft, RefreshCw, Wallet, AlertCircle,
@@ -43,7 +44,7 @@ export default function StudentDetailPage() {
   const [tab, setTab] = useState<Tab>('groups');
 
   const [payModal, setPayModal] = useState(false);
-  const [payForm, setPayForm] = useState({ amount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
+  const [payForm, setPayForm] = useState({ amount: '', discountAmount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
   const [payConfirm, setPayConfirm] = useState(false);
   const [payLoading, setPayLoading] = useState(false);
 
@@ -77,7 +78,7 @@ export default function StudentDetailPage() {
   const allPayments: any[] = student.payments || [];
 
   const monthPayments = allPayments.filter((p: any) => !p.isRefunded && new Date(p.paidAt) >= monthStart);
-  const totalPaidMonth = monthPayments.reduce((s: number, p: any) => s + Number(p.amount), 0);
+  const totalPaidMonth = monthPayments.reduce((s: number, p: any) => s + Number(p.amount) + Number(p.discountAmount || 0), 0);
   const price = Number(activeEnrollment?.group?.price || 0);
   const balance = price > 0 ? totalPaidMonth - price : 0;
   const debt = balance < 0 ? Math.abs(balance) : 0;
@@ -86,14 +87,14 @@ export default function StudentDetailPage() {
     if (!payForm.amount) return;
     setPayLoading(true);
     try {
-      await api.post('/payments', {
+      const { data } = await api.post('/payments', {
         studentId: id, amount: Number(payForm.amount),
+        discountAmount: Number(payForm.discountAmount) || 0,
         method: payForm.method, notes: payForm.notes, type: payForm.type,
       });
       setPayConfirm(false); setPayModal(false);
-      setPayForm({ amount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
-      toast.success("To'lov saqlandi");
-      void load();
+      setPayForm({ amount: '', discountAmount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
+      router.push(`/admin/payments/${data.id}/print`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally { setPayLoading(false); }
@@ -137,7 +138,7 @@ export default function StudentDetailPage() {
   return (
     <div>
       {/* Breadcrumb */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <button onClick={() => router.push('/admin/students')}
             className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors">
@@ -154,9 +155,9 @@ export default function StudentDetailPage() {
         </div>
       </div>
 
-      <div className="flex gap-6 items-start">
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* Left panel */}
-        <div className="w-72 shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="w-full lg:w-72 shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <div className="flex flex-col items-center mb-6">
             <Avatar name={student.name} size="xl" />
             <h2 className="mt-3 font-semibold text-gray-900 text-lg text-center">
@@ -369,6 +370,11 @@ export default function StudentDetailPage() {
                         <span className={`font-semibold ${p.isRefunded ? 'line-through text-gray-400' : 'text-green-700'}`}>
                           +{Number(p.amount).toLocaleString()} so&apos;m
                         </span>
+                        {Number(p.discountAmount || 0) > 0 && (
+                          <span className="ml-2 text-xs font-medium text-amber-600">
+                            chegirma {Number(p.discountAmount).toLocaleString()} so&apos;m
+                          </span>
+                        )}
                         {p.isRefunded && <span className="ml-2 text-xs text-red-500">qaytarilgan</span>}
                       </td>
                       <td className="px-5 py-3.5">
@@ -453,27 +459,20 @@ export default function StudentDetailPage() {
       {/* To'lov modal */}
       <Modal open={payModal} onClose={() => setPayModal(false)} title={`To'lov · ${student.name}`} size="sm">
         <div className="space-y-4">
-          <Input label="Miqdor (so'm) *" type="number" value={payForm.amount}
-            onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} placeholder="0"
-            onWheel={e => e.currentTarget.blur()} />
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1.5">Usul</label>
-            <select className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
-              value={payForm.method} onChange={e => setPayForm(p => ({ ...p, method: e.target.value }))}>
-              <option value="CASH">Naqd</option>
-              <option value="PAYME">Payme</option>
-              <option value="CLICK">Click</option>
-              <option value="BANK_TRANSFER">Bank o&apos;tkazmasi</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1.5">Tur</label>
-            <select className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
-              value={payForm.type} onChange={e => setPayForm(p => ({ ...p, type: e.target.value }))}>
-              <option value="MONTHLY">Oylik</option>
-              <option value="ADVANCE">Avans</option>
-            </select>
-          </div>
+          <Input label="Miqdor (so'm) *" type="text" value={payForm.amount ? Number(payForm.amount).toLocaleString('en-US') : ''}
+            onChange={e => setPayForm(p => ({ ...p, amount: e.target.value.replace(/\D/g, '') }))} placeholder="0" />
+          <Input label="Chegirma (so'm)" type="text" value={payForm.discountAmount ? Number(payForm.discountAmount).toLocaleString('en-US') : ''}
+            onChange={e => setPayForm(p => ({ ...p, discountAmount: e.target.value.replace(/\D/g, '') }))} placeholder="0" />
+          <Select label="Usul" value={payForm.method} onChange={e => setPayForm(p => ({ ...p, method: e.target.value }))}>
+            <option value="CASH">Naqd</option>
+            <option value="PAYME">Payme</option>
+            <option value="CLICK">Click</option>
+            <option value="BANK_TRANSFER">Bank o&apos;tkazmasi</option>
+          </Select>
+          <Select label="Tur" value={payForm.type} onChange={e => setPayForm(p => ({ ...p, type: e.target.value }))}>
+            <option value="MONTHLY">Oylik</option>
+            <option value="ADVANCE">Avans</option>
+          </Select>
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-1.5">Izoh</label>
             <textarea className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 resize-none" rows={2}
@@ -490,7 +489,7 @@ export default function StudentDetailPage() {
         <div className="space-y-4">
           <p className="text-sm text-gray-600"><span className="font-semibold text-gray-900">{student.name}</span> uchun to&apos;lovni tasdiqlaysizmi?</p>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-            {[['Miqdor', `${Number(payForm.amount).toLocaleString()} so'm`], ['Usul', METHOD_LABEL[payForm.method] ?? payForm.method], ['Tur', payForm.type === 'MONTHLY' ? 'Oylik' : 'Avans']].map(([k, v]) => (
+            {[['Miqdor', `${Number(payForm.amount).toLocaleString()} so'm`], ['Chegirma', `${(Number(payForm.discountAmount) || 0).toLocaleString()} so'm`], ['Usul', METHOD_LABEL[payForm.method] ?? payForm.method], ['Tur', payForm.type === 'MONTHLY' ? 'Oylik' : 'Avans']].map(([k, v]) => (
               <div key={k} className="flex justify-between text-sm">
                 <span className="text-gray-600">{k}:</span>
                 <span className="font-semibold">{v}</span>

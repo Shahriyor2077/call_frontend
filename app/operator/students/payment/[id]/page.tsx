@@ -15,7 +15,7 @@ const METHODS = [
   { value: 'BANK_TRANSFER', label: 'Bank',   Icon: Building2 },
 ];
 
-export default function StudentPaymentPage() {
+export default function OperatorStudentPaymentPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const toast = useToast();
@@ -36,7 +36,7 @@ export default function StudentPaymentPage() {
   useEffect(() => {
     api.get(`/students/${id}`)
       .then(({ data }) => { setStudent(data); setLoading(false); })
-      .catch(() => { toast.error('Talaba topilmadi'); router.push('/admin/students'); });
+      .catch(() => { toast.error('Talaba topilmadi'); router.push('/operator/students'); });
   }, [id]);
 
   if (loading || !student) return (
@@ -54,12 +54,13 @@ export default function StudentPaymentPage() {
     if (!amount || Number(amount) <= 0) { toast.warning("To'lov miqdorini kiriting"); return; }
     setSubmitting(true);
     try {
-      const { data } = await api.post('/payments', {
+      await api.post('/payments', {
         studentId: id, amount: Number(amount),
         discountAmount: Number(discountAmount) || 0,
         method, notes, type,
       });
-      router.push(`/admin/payments/${data.id}/print`);
+      toast.success("To'lov muvaffaqiyatli saqlandi");
+      router.push('/operator/students');
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally { setSubmitting(false); }
@@ -71,7 +72,7 @@ export default function StudentPaymentPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-gray-900 tracking-wide">TO&apos;LOV</h1>
         <div className="flex items-center gap-2 text-sm text-gray-400">
-          <span className="hover:text-indigo-600 cursor-pointer" onClick={() => router.push('/admin/payments')}>To&apos;lov</span>
+          <span className="hover:text-indigo-600 cursor-pointer" onClick={() => router.push('/operator/students')}>O&apos;quvchilar</span>
           <span>›</span>
           <span className="text-gray-600 font-medium">To&apos;lov</span>
         </div>
@@ -200,10 +201,12 @@ export default function StudentPaymentPage() {
 
       {/* Footer */}
       <div className="flex items-center justify-between mt-5 bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-4">
-        <span className="text-sm text-gray-500">
-          To&apos;lov haqida SMS yuborish holati:{' '}
-          <span className="text-teal-600 font-semibold">Yoniq</span>
-        </span>
+        <button
+          onClick={() => router.push('/operator/students')}
+          className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+        >
+          ← Orqaga
+        </button>
         <button
           onClick={() => void submit()}
           disabled={submitting}

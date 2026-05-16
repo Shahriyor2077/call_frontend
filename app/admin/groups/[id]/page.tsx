@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import Avatar from '@/components/ui/Avatar';
 import {
   ArrowLeft, Users, AlertCircle, Clock, Calendar,
@@ -46,13 +47,17 @@ export default function GroupDetailPage() {
 
   const [paymentModal, setPaymentModal] = useState<any>(null);
   const [paymentConfirmModal, setPaymentConfirmModal] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
+  const [paymentForm, setPaymentForm] = useState({ amount: '', discountAmount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
   const [unenrollModal, setUnenrollModal] = useState<any>(null);
   const [unenrollLoading, setUnenrollLoading] = useState(false);
 
   const [detailModal, setDetailModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [finishModal, setFinishModal] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [courses, setCourses] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [editForm, setEditForm] = useState({
@@ -87,7 +92,7 @@ export default function GroupDetailPage() {
             const lastPayment = allPayments[0] || null;
             const monthTotal = allPayments
               .filter(p => !p.isRefunded && new Date(p.paidAt) >= startOfMonth)
-              .reduce((sum, p) => sum + Number(p.amount), 0);
+              .reduce((sum, p) => sum + Number(p.amount) + Number(p.discountAmount || 0), 0);
             const debt = groupPrice > 0 ? Math.max(0, groupPrice - monthTotal) : 0;
             const overpayment = groupPrice > 0 ? Math.max(0, monthTotal - groupPrice) : 0;
             return { ...student, addedBy: enrollment?.operator ?? null, lastPayment, monthTotal, debt, overpayment };
@@ -97,8 +102,8 @@ export default function GroupDetailPage() {
         })
       );
       setStudents(enriched);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      toast.error('Ma\'lumotlar yuklanmadi');
     } finally {
       setLoading(false);
     }
@@ -196,21 +201,54 @@ export default function GroupDetailPage() {
     }
   }
 
+  async function finishGroup() {
+    if (!group) return;
+    setActionLoading(true);
+    try {
+      await api.put(`/groups/${id}`, { status: 'COMPLETED' });
+      setFinishModal(false);
+      setActionsOpen(false);
+      await load();
+      toast.success('Guruh yakunlandi');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Guruhni yakunlashda xatolik yuz berdi');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function deleteGroup() {
+    if (!group) return;
+    setActionLoading(true);
+    try {
+      await api.delete(`/groups/${id}`);
+      setDeleteModal(false);
+      setActionsOpen(false);
+      toast.success('Guruh o\'chirildi');
+      router.push('/admin/groups');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Guruhni o\'chirishda xatolik yuz berdi');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function submitPayment() {
     if (!paymentModal) return;
     setPayLoading(true);
     try {
-      await api.post('/payments', {
+      const { data } = await api.post('/payments', {
         studentId: paymentModal.id,
         amount: Number(paymentForm.amount),
+        discountAmount: Number(paymentForm.discountAmount) || 0,
         method: paymentForm.method,
         notes: paymentForm.notes,
         type: paymentForm.type,
       });
       setPaymentConfirmModal(false);
       setPaymentModal(null);
-      setPaymentForm({ amount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
-      await load();
+      setPaymentForm({ amount: '', discountAmount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
+      router.push(`/admin/payments/${data.id}/print`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
@@ -231,8 +269,13 @@ export default function GroupDetailPage() {
 
   const debtorCount = students.filter(s => s.debt > 0).length;
   const todayDay = DAY_MAP[new Date().getDay()];
-  const hasClassToday = group.days?.includes(todayDay);
-  const todayTime = hasClassToday ? `${group.startTime} – ${group.endTime}` : '—';
+  const hasSchedule = Boolean(group.days?.length && group.startTime && group.endTime);
+  const hasClassToday = hasSchedule && group.days?.includes(todayDay);
+  const todayTime = !hasSchedule
+    ? 'Kiritilmagan'
+    : hasClassToday
+      ? `${group.startTime} - ${group.endTime}`
+      : "Bugun dars yo'q";
 
   const filteredStudents = students.filter(s =>
     !studentSearch || s.name?.toLowerCase().includes(studentSearch.toLowerCase()) || s.phone?.includes(studentSearch)
@@ -246,16 +289,49 @@ export default function GroupDetailPage() {
   ];
 
   return (
-    <div className="flex gap-5 items-start">
+    <div className="flex flex-col lg:flex-row gap-5 items-start">
+      {actionsOpen && (
+        <button
+          aria-label="Menyuni yopish"
+          className="fixed inset-0 z-30 cursor-default"
+          onClick={() => setActionsOpen(false)}
+        />
+      )}
       {/* ── Left info card ── */}
-      <div className="w-68 shrink-0">
+      <div className="w-full lg:w-68 shrink-0">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           {/* Name */}
-          <div className="flex items-start justify-between mb-1">
+          <div className="flex items-start justify-between mb-1 relative">
             <h2 className="text-[17px] font-bold text-gray-900 leading-tight">{group.name}</h2>
-            <button className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 shrink-0">
+            <button
+              onClick={() => setActionsOpen(v => !v)}
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 shrink-0"
+            >
               <MoreVertical size={14} />
             </button>
+            {actionsOpen && (
+              <div className="absolute right-0 top-8 z-40 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5">
+                <button
+                  onClick={() => {
+                    setActionsOpen(false);
+                    setFinishModal(true);
+                  }}
+                  disabled={group.status === 'COMPLETED'}
+                  className="w-full text-left px-3.5 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:text-gray-300 disabled:hover:bg-white transition-colors"
+                >
+                  Guruhni yakunlash
+                </button>
+                <button
+                  onClick={() => {
+                    setActionsOpen(false);
+                    setDeleteModal(true);
+                  }}
+                  className="w-full text-left px-3.5 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  Guruhni o'chirish
+                </button>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-4">
             <Calendar size={11} />
@@ -312,7 +388,7 @@ export default function GroupDetailPage() {
       <div className="flex-1 min-w-0 space-y-4">
 
         {/* Stat cards */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { label: "O'quvchilar soni", value: students.length, icon: <Users size={20} />, from: 'from-blue-500', to: 'to-indigo-600' },
             { label: 'Qarzdor o\'quvchilar', value: debtorCount, icon: <AlertCircle size={20} />, from: 'from-amber-400', to: 'to-orange-500' },
@@ -321,7 +397,9 @@ export default function GroupDetailPage() {
             <div key={s.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-400 mb-2 font-medium">{s.label}</p>
-                <p className="text-2xl font-bold text-gray-900 leading-none">{s.value}</p>
+                <p className={`${String(s.value).length > 12 ? 'text-lg' : 'text-2xl'} font-bold text-gray-900 leading-none`}>
+                  {s.value}
+                </p>
               </div>
               <div className={`w-11 h-11 rounded-xl bg-linear-to-br ${s.from} ${s.to} flex items-center justify-center text-white shadow-sm shrink-0`}>
                 {s.icon}
@@ -399,10 +477,14 @@ export default function GroupDetailPage() {
                       const hasOver = group.price && s.overpayment > 0;
                       const isPaid = group.price && s.debt === 0 && s.monthTotal > 0;
                       return (
-                        <tr key={s.id} className="hover:bg-gray-50/60 transition-colors">
+                        <tr
+                          key={s.id}
+                          onClick={() => router.push(`/admin/students/${s.id}`)}
+                          className="hover:bg-gray-50/60 transition-colors cursor-pointer"
+                        >
                           <td className="px-5 py-3.5 text-gray-400 text-xs font-mono">{idx + 1}</td>
                           <td className="px-5 py-3.5">
-                            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => openHistory(s)}>
+                            <div className="flex items-center gap-2.5">
                               <Avatar name={s.name} size="sm" />
                               <span className="font-medium text-gray-900 hover:text-indigo-600 transition-colors">{s.name}</span>
                             </div>
@@ -428,18 +510,22 @@ export default function GroupDetailPage() {
                           <td className="px-5 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <button
-                                onClick={() => openHistory(s)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openHistory(s);
+                                }}
                                 title="To'lovlar tarixi"
                                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"
                               >
                                 <FileText size={14} />
                               </button>
                               <button
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setPaymentModal(s);
                                   setPaymentForm({
                                     amount: s.debt > 0 ? String(s.debt) : (group.price ? String(group.price) : ''),
-                                    method: 'CASH', notes: '', type: 'MONTHLY',
+                                    discountAmount: '', method: 'CASH', notes: '', type: 'MONTHLY',
                                   });
                                 }}
                                 title="To'lov kiritish"
@@ -449,7 +535,10 @@ export default function GroupDetailPage() {
                               </button>
                               <button
                                 title="Guruhdan chiqarish"
-                                onClick={() => setUnenrollModal(s)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setUnenrollModal(s);
+                                }}
                                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-50 hover:bg-red-100 text-red-500 transition-colors"
                               >
                                 <UserMinus size={14} />
@@ -487,7 +576,11 @@ export default function GroupDetailPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {debtors.map((s, idx) => (
-                      <tr key={s.id} className="hover:bg-red-50/30 transition-colors">
+                      <tr
+                        key={s.id}
+                        onClick={() => router.push(`/admin/students/${s.id}`)}
+                        className="hover:bg-red-50/30 transition-colors cursor-pointer"
+                      >
                         <td className="px-5 py-3.5 text-gray-400 text-xs font-mono">{idx + 1}</td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2.5">
@@ -504,9 +597,10 @@ export default function GroupDetailPage() {
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setPaymentModal(s);
-                              setPaymentForm({ amount: String(s.debt), method: 'CASH', notes: '', type: 'MONTHLY' });
+                              setPaymentForm({ amount: String(s.debt), discountAmount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
                             }}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-xs font-semibold transition-colors"
                           >
@@ -531,13 +625,13 @@ export default function GroupDetailPage() {
                   const isToday = DAY_MAP[new Date().getDay()] === key;
                   return (
                     <div key={key} className={`rounded-xl p-3 text-center border transition-all ${
-                      isClass && isToday ? 'bg-indigo-600 border-indigo-600 text-white'
-                        : isClass ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                      isClass && isToday ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
+                        : isClass ? 'bg-amber-50 border-amber-200 text-amber-800'
                           : 'bg-gray-50 border-gray-100 text-gray-400'
                     }`}>
                       <p className="text-xs font-semibold">{label}</p>
                       {isClass && (
-                        <p className={`text-[10px] mt-1 ${isToday ? 'text-indigo-200' : 'text-indigo-500'}`}>
+                        <p className={`text-[10px] mt-1 ${isToday ? 'text-amber-100' : 'text-amber-600'}`}>
                           {group.startTime}
                         </p>
                       )}
@@ -562,7 +656,7 @@ export default function GroupDetailPage() {
         {(() => {
           const METHOD_LABEL: Record<string, string> = { CASH: 'Naqd', PAYME: 'Payme', CLICK: 'Click', BANK_TRANSFER: 'Bank' };
           const METHOD_COLOR: Record<string, string> = { CASH: 'bg-green-50 text-green-700', PAYME: 'bg-cyan-50 text-cyan-700', CLICK: 'bg-orange-50 text-orange-700', BANK_TRANSFER: 'bg-purple-50 text-purple-700' };
-          const totalPaid = historyPayments.filter(p => !p.isRefunded).reduce((s, p) => s + Number(p.amount), 0);
+          const totalPaid = historyPayments.filter(p => !p.isRefunded).reduce((s, p) => s + Number(p.amount) + Number(p.discountAmount || 0), 0);
           return (
             <div>
               <div className="flex items-center gap-4 mb-5 p-4 bg-gray-50 rounded-xl">
@@ -606,6 +700,11 @@ export default function GroupDetailPage() {
                           <td className="px-4 py-3 text-right">
                             <span className={`font-semibold text-sm ${p.isRefunded ? 'line-through text-gray-400' : 'text-green-700'}`}>
                               +{Number(p.amount).toLocaleString()} so&apos;m
+                              {Number(p.discountAmount || 0) > 0 && (
+                                <span className="ml-2 text-xs text-amber-600">
+                                  chegirma {Number(p.discountAmount).toLocaleString()} so'm
+                                </span>
+                              )}
                             </span>
                             {p.isRefunded && <span className="ml-1 text-xs text-red-500">qaytarilgan</span>}
                           </td>
@@ -616,7 +715,7 @@ export default function GroupDetailPage() {
                 </div>
               )}
               <div className="flex justify-between pt-2 border-t">
-                <Button onClick={() => { setPaymentModal(historyStudent); setPaymentForm({ amount: historyStudent?.debt > 0 ? String(historyStudent.debt) : (group?.price ? String(group.price) : ''), method: 'CASH', notes: '', type: 'MONTHLY' }); }}>
+                <Button onClick={() => { setPaymentModal(historyStudent); setPaymentForm({ amount: historyStudent?.debt > 0 ? String(historyStudent.debt) : (group?.price ? String(group.price) : ''), discountAmount: '', method: 'CASH', notes: '', type: 'MONTHLY' }); }}>
                   + To&apos;lov kiritish
                 </Button>
                 <Button variant="secondary" onClick={() => setHistoryStudent(null)}>Yopish</Button>
@@ -629,23 +728,18 @@ export default function GroupDetailPage() {
       {/* ── Payment Modal ── */}
       <Modal open={!!paymentModal} onClose={() => setPaymentModal(null)} title={`To'lov · ${paymentModal?.name ?? ''}`} size="sm">
         <div className="space-y-4">
-          <Input label="Miqdor (so'm) *" type="number" value={paymentForm.amount} onChange={e => setPaymentForm(p => ({ ...p, amount: e.target.value }))} placeholder="0" />
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1.5">Usul</label>
-            <select className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" value={paymentForm.method} onChange={e => setPaymentForm(p => ({ ...p, method: e.target.value }))}>
-              <option value="CASH">Naqd</option>
-              <option value="PAYME">Payme</option>
-              <option value="CLICK">Click</option>
-              <option value="BANK_TRANSFER">Bank o&apos;tkazmasi</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1.5">Tur</label>
-            <select className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" value={paymentForm.type} onChange={e => setPaymentForm(p => ({ ...p, type: e.target.value }))}>
-              <option value="MONTHLY">Oylik</option>
-              <option value="ADVANCE">Avans</option>
-            </select>
-          </div>
+          <Input label="Miqdor (so'm) *" type="text" value={paymentForm.amount ? Number(paymentForm.amount).toLocaleString('en-US') : ''} onChange={e => setPaymentForm(p => ({ ...p, amount: e.target.value.replace(/\D/g, '') }))} placeholder="0" />
+          <Input label="Chegirma (so'm)" type="text" value={paymentForm.discountAmount ? Number(paymentForm.discountAmount).toLocaleString('en-US') : ''} onChange={e => setPaymentForm(p => ({ ...p, discountAmount: e.target.value.replace(/\D/g, '') }))} placeholder="0" />
+          <Select label="Usul" value={paymentForm.method} onChange={e => setPaymentForm(p => ({ ...p, method: e.target.value }))}>
+            <option value="CASH">Naqd</option>
+            <option value="PAYME">Payme</option>
+            <option value="CLICK">Click</option>
+            <option value="BANK_TRANSFER">Bank o&apos;tkazmasi</option>
+          </Select>
+          <Select label="Tur" value={paymentForm.type} onChange={e => setPaymentForm(p => ({ ...p, type: e.target.value }))}>
+            <option value="MONTHLY">Oylik</option>
+            <option value="ADVANCE">Avans</option>
+          </Select>
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-1.5">Izoh</label>
             <textarea className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30" rows={2} value={paymentForm.notes} onChange={e => setPaymentForm(p => ({ ...p, notes: e.target.value }))} />
@@ -674,6 +768,44 @@ export default function GroupDetailPage() {
       </Modal>
 
       {/* ── Detail Modal ── */}
+      <Modal open={finishModal} onClose={() => setFinishModal(false)} title="Guruhni yakunlash" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            <span className="font-semibold text-gray-900">{group?.name}</span> guruhini yakunlangan holatga o'tkazmoqchimisiz?
+          </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+            <p className="text-sm text-amber-800">
+              Yakunlangan guruhga yangi o'quvchi biriktirib bo'lmaydi.
+            </p>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button onClick={() => void finishGroup()} loading={actionLoading} className="flex-1">
+              Yakunlash
+            </Button>
+            <Button variant="secondary" onClick={() => setFinishModal(false)} className="flex-1">Bekor</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={deleteModal} onClose={() => setDeleteModal(false)} title="Guruhni o'chirish" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            <span className="font-semibold text-gray-900">{group?.name}</span> guruhini o'chirishni xohlaysizmi?
+          </p>
+          <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+            <p className="text-sm text-red-700">
+              Bu amal guruhni ro'yxatdan olib tashlaydi. Guruhdagi biriktirish ma'lumotlari ko'rinmaydi.
+            </p>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button variant="danger" onClick={() => void deleteGroup()} loading={actionLoading} className="flex-1">
+              O'chirish
+            </Button>
+            <Button variant="secondary" onClick={() => setDeleteModal(false)} className="flex-1">Bekor</Button>
+          </div>
+        </div>
+      </Modal>
+
       <Modal open={detailModal} onClose={() => setDetailModal(false)} title="Guruh haqida" size="sm">
         {group && (
           <div className="space-y-4">
@@ -721,30 +853,21 @@ export default function GroupDetailPage() {
       <Modal open={editModal} onClose={() => setEditModal(false)} title="Guruhni tahrirlash" size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">Kurs</label>
-              <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" value={editForm.courseId} onChange={e => setEditForm(p => ({ ...p, courseId: e.target.value }))}>
-                <option value="">— Tanlang —</option>
-                {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
+            <Select label="Kurs" value={editForm.courseId} onChange={e => setEditForm(p => ({ ...p, courseId: e.target.value }))}>
+              <option value="">— Tanlang —</option>
+              {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </Select>
             <Input label="Guruh nomi *" value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} />
           </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">O&apos;qituvchi</label>
-            <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" value={editForm.teacherId} onChange={e => setEditForm(p => ({ ...p, teacherId: e.target.value }))}>
-              <option value="">— Tanlang —</option>
-              {teachers.map(t => <option key={t.id} value={t.id}>{t.name}{t.specialty ? ` (${t.specialty})` : ''}</option>)}
-            </select>
-          </div>
+          <Select label="O'qituvchi" value={editForm.teacherId} onChange={e => setEditForm(p => ({ ...p, teacherId: e.target.value }))}>
+            <option value="">— Tanlang —</option>
+            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}{t.specialty ? ` (${t.specialty})` : ''}</option>)}
+          </Select>
           <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">Tur</label>
-              <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" value={editForm.type} onChange={e => setEditForm(p => ({ ...p, type: e.target.value }))}>
-                <option value="OFFLINE">Offline</option>
-                <option value="ONLINE">Online</option>
-              </select>
-            </div>
+            <Select label="Tur" value={editForm.type} onChange={e => setEditForm(p => ({ ...p, type: e.target.value }))}>
+              <option value="OFFLINE">Offline</option>
+              <option value="ONLINE">Online</option>
+            </Select>
             <Input label="Max talabalar" type="number" value={editForm.maxStudents} onChange={e => setEditForm(p => ({ ...p, maxStudents: e.target.value }))} onWheel={e => e.currentTarget.blur()} />
             <Input label="Narx (so'm)" type="number" value={editForm.price} onChange={e => setEditForm(p => ({ ...p, price: e.target.value }))} onWheel={e => e.currentTarget.blur()} />
           </div>
@@ -778,13 +901,10 @@ export default function GroupDetailPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Davomiyligi" type="number" value={editForm.duration} onChange={e => setEditForm(p => ({ ...p, duration: e.target.value }))} onWheel={e => e.currentTarget.blur()} />
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">Birlik</label>
-              <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" value={editForm.durationUnit} onChange={e => setEditForm(p => ({ ...p, durationUnit: e.target.value }))}>
-                <option value="month">Oy</option>
-                <option value="week">Hafta</option>
-              </select>
-            </div>
+            <Select label="Birlik" value={editForm.durationUnit} onChange={e => setEditForm(p => ({ ...p, durationUnit: e.target.value }))}>
+              <option value="month">Oy</option>
+              <option value="week">Hafta</option>
+            </Select>
           </div>
           <div className="flex gap-3 pt-2">
             <Button onClick={() => void saveEdit()} loading={editLoading} className="flex-1">Saqlash</Button>
@@ -802,6 +922,7 @@ export default function GroupDetailPage() {
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
             {[
               ['Miqdor', `${Number(paymentForm.amount).toLocaleString()} so'm`],
+              ['Chegirma', `${(Number(paymentForm.discountAmount) || 0).toLocaleString()} so'm`],
               ['Usul', paymentForm.method === 'CASH' ? 'Naqd' : paymentForm.method === 'PAYME' ? 'Payme' : paymentForm.method === 'CLICK' ? 'Click' : 'Bank'],
               ['Tur', paymentForm.type === 'MONTHLY' ? 'Oylik' : 'Avans'],
             ].map(([k, v]) => (

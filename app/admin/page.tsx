@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
-import { Users, Layers, BookOpen, UserCheck } from 'lucide-react';
+import { useToast } from '@/components/ui/ToastProvider';
+import { Users, Layers, BookOpen, UserCheck, AlertTriangle } from 'lucide-react';
 
 const MONTHS_UZ = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
 
@@ -151,13 +152,17 @@ function StatCard({
   return (
     <div
       onClick={onClick}
-      className={`bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all group ${onClick ? 'cursor-pointer hover:border-indigo-200' : ''}`}
+      className={`relative bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm hover:shadow-xl transition-all duration-300 group overflow-hidden ${onClick ? 'cursor-pointer hover:border-indigo-300 hover:-translate-y-1' : ''}`}
     >
-      <div className={`w-11 h-11 rounded-xl bg-linear-to-br ${from} ${to} flex items-center justify-center text-white mb-4 shadow-sm group-hover:scale-105 transition-transform`}>
-        {icon}
+      <div className={`absolute inset-0 bg-linear-to-br ${from} ${to} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+
+      <div className="relative">
+        <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-linear-to-br ${from} ${to} flex items-center justify-center text-white mb-3 sm:mb-4 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 [&>svg]:w-4 [&>svg]:h-4 sm:[&>svg]:w-5.5 sm:[&>svg]:h-5.5`}>
+          {icon}
+        </div>
+        <p className="text-2xl sm:text-3xl font-bold text-gray-900 leading-none mb-1.5 sm:mb-2 group-hover:text-indigo-600 transition-colors">{value}</p>
+        <p className="text-xs sm:text-sm text-gray-500 font-medium">{title}</p>
       </div>
-      <p className="text-[28px] font-bold text-gray-900 leading-none mb-1.5">{value}</p>
-      <p className="text-sm text-gray-400 font-medium">{title}</p>
     </div>
   );
 }
@@ -166,11 +171,14 @@ function StatCard({
 export default function AdminDashboard() {
   const { user } = useAuthStore();
   const router = useRouter();
+  const toast = useToast();
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
 
   const [counts, setCounts] = useState({ students: 0, groups: 0, courses: 0, staff: 0 });
+  const [debtSummary, setDebtSummary] = useState({ count: 0, total: 0 });
+  const [financeStats, setFinanceStats] = useState({ income: 0, expenses: 0, discounts: 0, refunds: 0, cash: 0 });
   const [incomeFlow, setIncomeFlow] = useState<{ x: string; y: number }[]>([]);
   const [studentFlow, setStudentFlow] = useState<{ x: string; y: number }[]>([]);
   const [monthlyStudents, setMonthlyStudents] = useState<{ label: string; value: number }[]>([]);
@@ -182,12 +190,14 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function load() {
-      const [studRes, grpRes, crsRes, usrRes, leadRes] = await Promise.all([
-        api.get('/students').catch(() => ({ data: [] })),
-        api.get('/groups').catch(() => ({ data: [] })),
-        api.get('/courses').catch(() => ({ data: [] })),
-        api.get('/users').catch(() => ({ data: [] })),
+      try {
+      const [studRes, grpRes, crsRes, usrRes, leadRes, debtorsRes] = await Promise.all([
+        api.get('/students').catch(() => { toast.error('O\'quvchilar yuklanmadi'); return { data: [] }; }),
+        api.get('/groups').catch(() => { toast.error('Guruhlar yuklanmadi'); return { data: [] }; }),
+        api.get('/courses').catch(() => { toast.error('Kurslar yuklanmadi'); return { data: [] }; }),
+        api.get('/users').catch(() => { toast.error('Xodimlar yuklanmadi'); return { data: [] }; }),
         api.get('/leads?page=1&limit=500').catch(() => ({ data: { data: [] } })),
+        api.get('/students/debtors').catch(() => ({ data: [] })),
       ]);
 
       const students: any[] = studRes.data ?? [];
@@ -195,6 +205,11 @@ export default function AdminDashboard() {
       const courses: any[] = crsRes.data ?? [];
       const users: any[] = usrRes.data ?? [];
       const leads: any[] = Array.isArray(leadRes.data) ? leadRes.data : (leadRes.data?.data ?? []);
+      const debtors: any[] = Array.isArray(debtorsRes.data) ? debtorsRes.data : [];
+      setDebtSummary({
+        count: debtors.length,
+        total: debtors.reduce((s: number, d: any) => s + Number(d.debt ?? 0), 0),
+      });
 
       /* counts */
       setCounts({
@@ -207,6 +222,32 @@ export default function AdminDashboard() {
       /* income line chart — last 7 months (in thousands) */
       const allPayRes = await api.get('/payments?page=1&limit=5000').catch(() => ({ data: [] }));
       const allPay: any[] = Array.isArray(allPayRes.data) ? allPayRes.data : (allPayRes.data?.data ?? []);
+
+      /* Calculate finance stats for current month */
+      const monthPayments = allPay.filter(p => {
+        const pd = new Date(p.paidAt);
+        return pd.getMonth() === currentMonth && pd.getFullYear() === currentYear;
+      });
+      const activePayments = monthPayments.filter(p => !p.isRefunded);
+      const refundedPayments = monthPayments.filter(p => p.isRefunded);
+      const totalIncome = activePayments.reduce((s, p) => s + Number(p.amount), 0);
+      const totalDiscounts = activePayments.reduce((s, p) => s + Number(p.discountAmount || 0), 0);
+      const totalRefunds = refundedPayments.reduce((s, p) => s + Number(p.amount), 0);
+
+      // Get paid salaries for current month
+      const salaryRes = await api.get(`/salary/history/all?month=${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`).catch(() => ({ data: [] }));
+      const paidSalaries = Array.isArray(salaryRes.data) ? salaryRes.data : [];
+      const totalSalaries = paidSalaries.reduce((s: number, p: any) => s + Number(p.totalAmount || 0), 0);
+
+      const cashBalance = totalIncome - totalRefunds - totalSalaries;
+
+      setFinanceStats({
+        income: totalIncome,
+        expenses: 0, // Will be implemented later
+        discounts: totalDiscounts,
+        refunds: totalRefunds,
+        cash: cashBalance,
+      });
 
       const income7 = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(currentYear, currentMonth - 6 + i, 1);
@@ -252,19 +293,19 @@ export default function AdminDashboard() {
           const sid = p.student?.id;
           const pd = new Date(p.paidAt);
           if (sid && pd.getMonth() === currentMonth && pd.getFullYear() === currentYear) {
-            monthPaid[sid] = (monthPaid[sid] || 0) + Number(p.amount);
+            monthPaid[sid] = (monthPaid[sid] || 0) + Number(p.amount) + Number(p.discountAmount || 0);
           }
         }
       });
-      const debtors = students.filter(s => {
+      const debtorCount = students.filter(s => {
         const active = s.enrollments?.find((e: any) => e.isActive);
         if (!active) return false;
         const price = Number(active.group?.price || 0);
         return price > 0 && (monthPaid[s.id] || 0) < price;
       }).length;
       setFinDonut([
-        { label: 'Qarzdor emas', value: students.length - debtors, color: '#3b82f6' },
-        { label: 'Qarzdor', value: debtors, color: '#f59e0b' },
+        { label: 'Qarzdor emas', value: students.length - debtorCount, color: '#3b82f6' },
+        { label: 'Qarzdor', value: debtorCount, color: '#f59e0b' },
       ]);
 
       /* gender donut */
@@ -274,9 +315,16 @@ export default function AdminDashboard() {
         { label: 'Erkak', value: males, color: '#3b82f6' },
         { label: 'Ayol', value: females, color: '#ec4899' },
       ]);
+      } catch {
+        toast.error('Dashboard ma\'lumotlarini yuklashda xato yuz berdi');
+      }
     }
     void load();
   }, []);
+
+  function fmtNum(n: number) {
+    return n.toLocaleString('ru-RU').replace(/,/g, ' ');
+  }
 
   return (
     <div className="space-y-5">
@@ -291,6 +339,111 @@ export default function AdminDashboard() {
         </span>
       </div>
 
+      {/* Finance cards row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div
+          onClick={() => router.push('/admin/payments')}
+          className="group relative bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl p-4 sm:p-6 transition-all duration-300 hover:-translate-y-1 overflow-hidden cursor-pointer"
+        >
+          <div className="absolute inset-0 bg-linear-to-br from-green-400 to-emerald-500 opacity-0 group-hover:opacity-5 transition-opacity duration-300" />
+          <div className="relative">
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">To&apos;lovlar</p>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-linear-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-xl sm:text-3xl font-bold text-gray-900 leading-none">{fmtNum(financeStats.income)}</p>
+                <p className="text-xs text-gray-400 font-medium mt-1">UZS</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">Joriy oy uchun jami tushum</p>
+          </div>
+        </div>
+
+        <div
+          onClick={() => router.push('/admin/payments')}
+          className="group relative bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl p-4 sm:p-6 transition-all duration-300 hover:-translate-y-1 overflow-hidden cursor-pointer"
+        >
+          <div className="absolute inset-0 bg-linear-to-br from-red-400 to-rose-500 opacity-0 group-hover:opacity-5 transition-opacity duration-300" />
+          <div className="relative">
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Qaytarilgan to&apos;lovlar</p>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-linear-to-br from-red-400 to-rose-500 flex items-center justify-center text-white shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                  <path d="M21 3v5h-5" />
+                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                  <path d="M3 21v-5h5" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-xl sm:text-3xl font-bold text-gray-900 leading-none">{fmtNum(financeStats.refunds)}</p>
+                <p className="text-xs text-gray-400 font-medium mt-1">UZS</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">Qaytarilgan to&apos;lovlar</p>
+          </div>
+        </div>
+
+        <div
+          onClick={() => router.push('/admin/reports/debtors')}
+          className="group relative bg-white rounded-2xl border border-amber-100 shadow-sm hover:shadow-xl p-6 transition-all duration-300 hover:-translate-y-1 overflow-hidden cursor-pointer"
+        >
+          <div className="absolute inset-0 bg-linear-to-br from-amber-400 to-orange-500 opacity-0 group-hover:opacity-5 transition-opacity duration-300" />
+          <div className="relative">
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Qarzodlik</p>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-linear-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <p className="text-xl sm:text-3xl font-bold text-gray-900 leading-none">{fmtNum(debtSummary.total)}</p>
+                <p className="text-xs text-gray-400 font-medium mt-1">UZS</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">
+              <span className="font-semibold text-amber-600">{debtSummary.count} ta</span> talaba qarzdor
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Kassa card */}
+      <div className="relative bg-linear-to-br from-indigo-500 via-violet-600 to-purple-700 rounded-2xl shadow-2xl p-7 text-white overflow-hidden group hover:shadow-3xl transition-all duration-300">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="relative">
+          <div className="flex items-start justify-between mb-5">
+            <div>
+              <p className="text-sm opacity-90 mb-2 font-medium">Kassa</p>
+              <p className="text-3xl sm:text-5xl font-bold tracking-tight">{fmtNum(financeStats.cash)} <span className="text-lg sm:text-2xl opacity-75">UZS</span></p>
+            </div>
+            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="7" width="20" height="14" rx="2" />
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+              </svg>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5 border-t border-white/20">
+            <div className="hover:bg-white/10 rounded-xl p-3 transition-all duration-200">
+              <p className="text-xs opacity-75 mb-1.5 font-medium">O&apos;qituvchilar hisobi</p>
+              <p className="text-lg font-bold">0 <span className="text-xs opacity-75">UZS</span></p>
+            </div>
+            <div className="hover:bg-white/10 rounded-xl p-3 transition-all duration-200">
+              <p className="text-xs opacity-75 mb-1.5 font-medium">Asosiy hisob</p>
+              <p className="text-lg font-bold">{fmtNum(financeStats.cash)} <span className="text-xs opacity-75">UZS</span></p>
+            </div>
+            <div className="hover:bg-white/10 rounded-xl p-3 transition-all duration-200">
+              <p className="text-xs opacity-75 mb-1.5 font-medium">Guruhlar hisobi</p>
+              <p className="text-lg font-bold">{fmtNum(financeStats.income)} <span className="text-xs opacity-75">UZS</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="O'quvchilar soni" value={counts.students} from="from-blue-500" to="to-indigo-600"
@@ -301,10 +454,10 @@ export default function AdminDashboard() {
           icon={<UserCheck size={20} />} onClick={() => router.push('/admin/operators')} />
         <StatCard title="Kurslar soni" value={counts.courses} from="from-violet-500" to="to-purple-700"
           icon={<BookOpen size={20} />} onClick={() => router.push('/admin/courses')} />
-      </div>
+      </div >
 
       {/* Line charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      < div className="grid grid-cols-1 lg:grid-cols-5 gap-4" >
         <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -325,12 +478,12 @@ export default function AdminDashboard() {
           </div>
           <LineAreaChart data={studentFlow} color="#f59e0b" />
         </div>
-      </div>
+      </div >
 
       {/* Bar + Donuts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      < div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" >
         {/* Bar chart */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        < div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm" >
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="font-semibold text-gray-900">Oylik o&apos;quvchilar</p>
@@ -339,10 +492,10 @@ export default function AdminDashboard() {
             <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />
           </div>
           <BarChart data={monthlyStudents} color="#3b82f6" />
-        </div>
+        </div >
 
         {/* Lead sources donut */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        < div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm" >
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="font-semibold text-gray-900">Lead manbalari</p>
@@ -350,10 +503,10 @@ export default function AdminDashboard() {
             </div>
           </div>
           <DonutChart data={leadDonut} centerLabel="leadlar" />
-        </div>
+        </div >
 
         {/* Financial donut */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        < div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm" >
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="font-semibold text-gray-900">Moliyaviy holat</p>
@@ -361,10 +514,10 @@ export default function AdminDashboard() {
             </div>
           </div>
           <DonutChart data={finDonut} centerLabel="talabalar" />
-        </div>
+        </div >
 
         {/* Gender donut */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        < div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm" >
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="font-semibold text-gray-900">Jins bo&apos;yicha</p>
@@ -372,8 +525,8 @@ export default function AdminDashboard() {
             </div>
           </div>
           <DonutChart data={genderDonut} centerLabel="jami" />
-        </div>
-      </div>
-    </div>
+        </div >
+      </div >
+    </div >
   );
 }

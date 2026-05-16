@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/ToastProvider';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 
 const METHOD_LABEL: Record<string, string> = {
   CASH: 'Naqd', PAYME: 'Payme', CLICK: 'Click', BANK_TRANSFER: 'Bank',
@@ -79,11 +80,11 @@ export default function AdminPaymentsPage() {
   const [editModal, setEditModal] = useState<any>(null);
   const [notesModal, setNotesModal] = useState<any>(null);
   const [refundModal, setRefundModal] = useState<any>(null);
-  const [editForm, setEditForm] = useState({ amount: '', notes: '' });
+  const [editForm, setEditForm] = useState({ amount: '', discountAmount: '', notes: '' });
   const [notesText, setNotesText] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
-  const limit = 50;
+  const limit = 15;
 
   async function load() {
     setLoading(true);
@@ -112,7 +113,7 @@ export default function AdminPaymentsPage() {
         setGroups(g.data);
         setOperators(u.data.filter((user: any) => user.role === 'OPERATOR' || user.role === 'ADMIN'));
       })
-      .catch(console.error);
+      .catch(() => toast.error('Filtrlar yuklanmadi'));
   }, []);
 
   useEffect(() => {
@@ -136,6 +137,7 @@ export default function AdminPaymentsPage() {
   const activePayments = payments.filter(p => !p.isRefunded);
   const refundedPayments = payments.filter(p => p.isRefunded);
   const totalSum = activePayments.reduce((s, p) => s + Number(p.amount), 0);
+  const totalDiscount = activePayments.reduce((s, p) => s + Number(p.discountAmount || 0), 0);
   const totalRefunded = refundedPayments.reduce((s, p) => s + Number(p.amount), 0);
 
   const methodSums: Record<string, { sum: number; refunded: number }> = {};
@@ -153,6 +155,60 @@ export default function AdminPaymentsPage() {
       p.student?.phone?.includes(search)
     )
     : payments;
+
+  async function exportToCSV() {
+    try {
+      const params = new URLSearchParams({ page: '1', limit: '10000' });
+      if (filterMethod) params.append('method', filterMethod);
+      if (filterType) params.append('type', filterType);
+      if (filterTeacher) params.append('teacherId', filterTeacher);
+      if (filterGroup) params.append('groupId', filterGroup);
+      if (filterOperator) params.append('operatorId', filterOperator);
+      if (dateFrom) params.append('from', dateFrom);
+      if (dateTo) params.append('to', dateTo);
+
+      const { data } = await api.get(`/payments?${params}`);
+      const all: any[] = data.data || [];
+
+      if (all.length === 0) {
+        toast.warning("Eksport qilish uchun ma'lumot yo'q");
+        return;
+      }
+
+      const TYPE_LABEL: Record<string, string> = { MONTHLY: 'Oylik', ADVANCE: 'Avans' };
+      const headers = ["#", "To'liq ismi", "Telefon", "Guruh", "To'lov usuli", "Tur", "Summa (UZS)", "Chegirma (UZS)", "Holat", "To'lov sanasi", "Operator"];
+      const rows = all.map((p, i) => {
+        const group = p.student?.enrollments?.[0]?.group;
+        return [
+          i + 1,
+          p.student?.name || '-',
+          p.student?.phone || '-',
+          group?.name || '-',
+          METHOD_LABEL[p.method] ?? p.method,
+          TYPE_LABEL[p.type] ?? p.type ?? '-',
+          Number(p.amount),
+          Number(p.discountAmount || 0),
+          p.isRefunded ? 'Qaytarilgan' : "To'langan",
+          fmtDateTime(p.paidAt),
+          p.operator?.name || '-',
+        ];
+      });
+
+      const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = dateFrom ? `${dateFrom}_${dateTo || 'hozir'}` : new Date().toISOString().split('T')[0];
+      a.download = `tolovlar_${dateStr}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+      toast.success(`${all.length} ta to'lov eksport qilindi`);
+    } catch {
+      toast.error("Eksport qilishda xatolik yuz berdi");
+    }
+  }
 
   async function handleRefund() {
     if (!refundModal) return;
@@ -174,6 +230,7 @@ export default function AdminPaymentsPage() {
     try {
       await api.put(`/payments/${editModal.id}`, {
         amount: Number(editForm.amount),
+        discountAmount: Number(editForm.discountAmount) || 0,
         notes: editForm.notes,
       });
       setEditModal(null);
@@ -208,7 +265,7 @@ export default function AdminPaymentsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-start justify-between mb-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">To&apos;lovlar</h1>
           <p className="text-sm text-gray-400 mt-0.5">Barcha kassa harakatlari.</p>
@@ -216,11 +273,11 @@ export default function AdminPaymentsPage() {
         <div className="flex gap-2">
           <button
             onClick={() => setShowFilters(v => !v)}
-            className={`flex items-center gap-1.5 px-4 py-2 border rounded-xl text-sm font-medium transition-colors ${showFilters ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+            className={`flex items-center gap-1.5 px-4 py-2 border rounded-xl text-sm font-medium transition-colors cursor-pointer ${showFilters ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
           >
             <Filter size={14} /> {showFilters ? 'Yashirish' : 'Filter'}
           </button>
-          <button className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+          <button onClick={() => void exportToCSV()} className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer">
             <Download size={14} /> Eksport
           </button>
         </div>
@@ -236,7 +293,7 @@ export default function AdminPaymentsPage() {
                 className="pl-8 pr-4 py-2 border border-gray-200 rounded-xl text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-400/30" />
             </div>
             {hasFilters && (
-              <button onClick={clearAll} className="flex items-center gap-1 px-3 py-2 text-xs text-red-500 hover:bg-red-50 rounded-xl border border-red-100 font-medium transition-colors">
+              <button onClick={clearAll} className="flex items-center gap-1 px-3 py-2 text-xs text-red-500 hover:bg-red-50 rounded-xl border border-red-100 font-medium transition-colors cursor-pointer">
                 <X size={12} /> Tozalash
               </button>
             )}
@@ -244,39 +301,34 @@ export default function AdminPaymentsPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <select value={filterTeacher} onChange={e => { setFilterTeacher(e.target.value); setPage(1); }}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/30 min-w-44">
+            <Select value={filterTeacher} onChange={e => { setFilterTeacher(e.target.value); setPage(1); }} className="min-w-44">
               <option value="">Barcha o&apos;qituvchilar</option>
               {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
+            </Select>
 
-            <select value={filterGroup} onChange={e => { setFilterGroup(e.target.value); setPage(1); }}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/30 min-w-40">
+            <Select value={filterGroup} onChange={e => { setFilterGroup(e.target.value); setPage(1); }} className="min-w-40">
               <option value="">Barcha guruhlar</option>
               {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
+            </Select>
 
-            <select value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/30">
+            <Select value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }}>
               <option value="">To&apos;lov turi</option>
               <option value="MONTHLY">Oylik</option>
               <option value="ADVANCE">Avans</option>
-            </select>
+            </Select>
 
-            <select value={filterOperator} onChange={e => { setFilterOperator(e.target.value); setPage(1); }}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/30 min-w-44">
+            <Select value={filterOperator} onChange={e => { setFilterOperator(e.target.value); setPage(1); }} className="min-w-44">
               <option value="">To&apos;lovni olgan</option>
               {operators.map(op => <option key={op.id} value={op.id}>{op.name}</option>)}
-            </select>
+            </Select>
 
-            <select value={filterMethod} onChange={e => { setFilterMethod(e.target.value); setPage(1); }}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/30">
+            <Select value={filterMethod} onChange={e => { setFilterMethod(e.target.value); setPage(1); }}>
               <option value="">Barcha usullar</option>
               <option value="CASH">Naqd</option>
               <option value="PAYME">Payme</option>
               <option value="CLICK">Click</option>
               <option value="BANK_TRANSFER">Bank</option>
-            </select>
+            </Select>
 
             <div className="flex items-center gap-1 border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400 shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
@@ -290,7 +342,7 @@ export default function AdminPaymentsPage() {
 
             <div className="relative">
               <button onClick={() => setPeriodOpen(v => !v)}
-                className={`flex items-center gap-1.5 px-3 py-2 border rounded-xl text-sm transition-colors ${selectedPeriod ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                className={`flex items-center gap-1.5 px-3 py-2 border rounded-xl text-sm transition-colors cursor-pointer ${selectedPeriod ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
                 {selectedPeriod || 'Davrni tanlang'}
                 {selectedPeriod
                   ? <X size={13} onClick={e => { e.stopPropagation(); clearPeriod(); }} className="hover:text-red-500" />
@@ -300,7 +352,7 @@ export default function AdminPaymentsPage() {
                 <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 z-30 min-w-36">
                   {PERIODS.map(p => (
                     <button key={p.label} onClick={() => applyPeriod(p)}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 transition-colors ${selectedPeriod === p.label ? 'text-indigo-700 font-semibold' : 'text-gray-700'}`}>
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 transition-colors cursor-pointer ${selectedPeriod === p.label ? 'text-indigo-700 font-semibold' : 'text-gray-700'}`}>
                       {p.label}
                     </button>
                   ))}
@@ -329,6 +381,7 @@ export default function AdminPaymentsPage() {
             <p className="text-xl font-bold text-teal-600">{fmtAmount(totalSum)} <span className="text-sm font-semibold text-gray-400">UZS</span></p>
           </div>
           <p className="text-xs text-gray-400"><span className="font-semibold text-gray-600">{fmtAmount(totalRefunded)} UZS</span> Qaytarib berildi</p>
+          <p className="text-xs text-amber-600 mt-1"><span className="font-semibold">{fmtAmount(totalDiscount)} UZS</span> chegirma</p>
           {hasFilters && (
             <button onClick={clearAll} className="mt-2 text-xs text-indigo-500 hover:text-indigo-700 font-medium flex items-center gap-1">
               Filterni tozalash <X size={11} />
@@ -366,11 +419,11 @@ export default function AdminPaymentsPage() {
           <p className="text-sm text-gray-500">Sahifa {page} / {totalPages}</p>
           <div className="flex gap-2">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40">
+              className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed">
               <ChevronLeft size={15} /> Oldingi
             </button>
             <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40">
+              className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed">
               Keyingi <ChevronRight size={15} />
             </button>
           </div>
@@ -379,6 +432,7 @@ export default function AdminPaymentsPage() {
 
       {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
@@ -433,7 +487,9 @@ export default function AdminPaymentsPage() {
                     </span>
                     {p.isRefunded && <span className="ml-1 text-[10px] text-red-400 font-medium">qaytarilgan</span>}
                   </td>
-                  <td className="px-4 py-3.5 text-sm text-gray-400">0 UZS</td>
+                  <td className="px-4 py-3.5 text-sm text-amber-600 font-medium">
+                    {fmtAmount(Number(p.discountAmount || 0))} UZS
+                  </td>
                   <td className="px-4 py-3.5">
                     <p className="text-sm font-semibold text-gray-800">{fmtDateTime(p.paidAt)}</p>
                     {p.operator?.name && (
@@ -442,36 +498,32 @@ export default function AdminPaymentsPage() {
                   </td>
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-1 justify-end">
-                      {/* Ko'rish - har doim ishlaydi */}
                       <button
                         onClick={() => setViewModal({ payment: p, rowNum: skip + idx + 1 })}
                         title="Ko'rish"
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
                       >
                         <Eye size={15} />
                       </button>
-                      {/* Izoh - har doim ishlaydi */}
                       <button
                         onClick={() => { setNotesModal(p); setNotesText(p.notes || ''); }}
                         title="Izoh"
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
                       >
                         <MessageSquare size={15} />
                       </button>
-                      {/* Tahrirlash - har doim ishlaydi */}
                       <button
-                        onClick={() => { setEditModal(p); setEditForm({ amount: String(p.amount), notes: p.notes || '' }); }}
+                        onClick={() => { setEditModal(p); setEditForm({ amount: String(p.amount), discountAmount: String(p.discountAmount || 0), notes: p.notes || '' }); }}
                         title="Tahrirlash"
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
                       >
                         <Pencil size={14} />
                       </button>
-                      {/* Qaytarish - faqat qaytarilgan to'lovlar uchun disabled */}
                       <button
                         onClick={() => setRefundModal(p)}
                         title="Qaytarish"
                         disabled={p.isRefunded}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                       >
                         <RotateCcw size={14} />
                       </button>
@@ -485,6 +537,7 @@ export default function AdminPaymentsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* View Modal */}
@@ -496,13 +549,14 @@ export default function AdminPaymentsPage() {
           const payDate = new Date(p.paidAt);
           const payDateStr = `${String(payDate.getDate()).padStart(2, '0')}.${String(payDate.getMonth() + 1).padStart(2, '0')}.${payDate.getFullYear()}`;
 
-          const rows: [string, string][] = [
+          const rows: [string, string, string?][] = [
             ['ID', String(viewModal.rowNum)],
             ["O'quvchi", p.student?.name ?? '—'],
             ["To'lov turi", p.type === 'MONTHLY' ? 'Oylik to\'lov' : 'Avans'],
             ["To'lov shakli", METHOD_LABEL[p.method] ?? p.method],
             ["To'lovni olgan", p.operator?.name ?? '—', 'blue'],
             ["To'lov miqdori", `${fmtAmount(Number(p.amount))} UZS`],
+            ['Chegirma', `${fmtAmount(Number(p.discountAmount || 0))} UZS`],
             ['Izoh', p.notes || '—'],
             ["To'lov sanasi", payDateStr],
           ];
@@ -564,8 +618,10 @@ export default function AdminPaymentsPage() {
       {/* Edit Modal */}
       <Modal open={!!editModal} onClose={() => setEditModal(null)} title="To'lovni tahrirlash" size="sm">
         <div className="space-y-4">
-          <Input label="Summa (UZS) *" type="number" value={editForm.amount}
-            onChange={e => setEditForm(p => ({ ...p, amount: e.target.value }))} />
+          <Input label="Summa (UZS) *" type="text" value={editForm.amount ? Number(editForm.amount).toLocaleString('en-US') : ''}
+            onChange={e => setEditForm(p => ({ ...p, amount: e.target.value.replace(/\D/g, '') }))} />
+          <Input label="Chegirma (UZS)" type="text" value={editForm.discountAmount ? Number(editForm.discountAmount).toLocaleString('en-US') : ''}
+            onChange={e => setEditForm(p => ({ ...p, discountAmount: e.target.value.replace(/\D/g, '') }))} />
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-1.5">Izoh</label>
             <textarea className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30" rows={2}

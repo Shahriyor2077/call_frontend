@@ -1,5 +1,7 @@
 'use client';
 
+import { ChevronDown } from 'lucide-react';
+
 const MONTHS_UZ = [
   'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
   'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr',
@@ -15,6 +17,27 @@ interface Props {
   value: string; // YYYY-MM-DD
   onChange: (val: string) => void;
   required?: boolean;
+}
+
+function NativeSelect({ value, onChange, className, children }: {
+  value: string | number;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`relative ${className ?? ''}`}>
+      <select
+        value={value}
+        onChange={onChange}
+        className="w-full appearance-none px-2.5 py-2 pr-7 border border-gray-300 rounded-lg text-sm bg-white text-gray-800
+          focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition-shadow cursor-pointer"
+      >
+        {children}
+      </select>
+      <ChevronDown size={13} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" />
+    </div>
+  );
 }
 
 export default function DateSelect({ label, value, onChange, required }: Props) {
@@ -37,11 +60,6 @@ export default function DateSelect({ label, value, onChange, required }: Props) 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1949 }, (_, i) => currentYear - i);
 
-  const selectCls =
-    'flex-1 px-2 py-2 border border-gray-200 rounded-xl text-sm bg-white ' +
-    'focus:outline-none focus:ring-2 focus:ring-indigo-400/30 text-gray-700 ' +
-    'appearance-none cursor-pointer';
-
   return (
     <div>
       {label && (
@@ -50,41 +68,26 @@ export default function DateSelect({ label, value, onChange, required }: Props) 
         </label>
       )}
       <div className="flex gap-2">
-        {/* Kun */}
-        <select
-          value={day || ''}
-          onChange={e => update(year, month, Number(e.target.value))}
-          className={selectCls}
-        >
+        <NativeSelect value={day || ''} onChange={e => update(year, month, Number(e.target.value))} className="flex-1">
           <option value="">Kun</option>
           {Array.from({ length: maxDay }, (_, i) => i + 1).map(d => (
             <option key={d} value={d}>{d}</option>
           ))}
-        </select>
+        </NativeSelect>
 
-        {/* Oy */}
-        <select
-          value={month || ''}
-          onChange={e => update(year, Number(e.target.value), day)}
-          className={`${selectCls} flex-[1.8]`}
-        >
+        <NativeSelect value={month || ''} onChange={e => update(year, Number(e.target.value), day)} className="flex-[1.8]">
           <option value="">Oy</option>
           {MONTHS_UZ.map((m, i) => (
             <option key={i + 1} value={i + 1}>{m}</option>
           ))}
-        </select>
+        </NativeSelect>
 
-        {/* Yil */}
-        <select
-          value={year || ''}
-          onChange={e => update(Number(e.target.value), month, day)}
-          className={`${selectCls} flex-[1.4]`}
-        >
+        <NativeSelect value={year || ''} onChange={e => update(Number(e.target.value), month, day)} className="flex-[1.4]">
           <option value="">Yil</option>
           {years.map(y => (
             <option key={y} value={y}>{y}</option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
     </div>
   );

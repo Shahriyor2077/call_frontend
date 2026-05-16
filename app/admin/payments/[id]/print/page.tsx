@@ -94,6 +94,7 @@ export default function PaymentPrintPage() {
             ['To\'lov turi',    TYPE_LABEL[payment.type] ?? payment.type],
             ['To\'lov shakli',  METHOD_LABEL[payment.method] ?? payment.method],
             ["To'lovni olgan",  payment.operator?.name ?? '—'],
+            ['Chegirma',        `${Number(payment.discountAmount || 0).toLocaleString()} UZS`],
           ].map(([label, value]) => (
             <div key={label} className="flex justify-between text-sm">
               <span className="text-gray-500">{label}</span>
@@ -107,6 +108,15 @@ export default function PaymentPrintPage() {
               {Number(payment.amount).toLocaleString()} UZS
             </span>
           </div>
+
+          {Number(payment.discountAmount || 0) > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Hisobga olingan jami</span>
+              <span className="font-bold text-gray-900">
+                {(Number(payment.amount) + Number(payment.discountAmount || 0)).toLocaleString()} UZS
+              </span>
+            </div>
+          )}
 
           {payment.notes && (
             <div className="flex justify-between text-sm">

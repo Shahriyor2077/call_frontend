@@ -18,45 +18,50 @@ type NavItem =
 
 function buildAdminNav(): NavItem[] {
   return [
-    { type: 'link',     href: '/admin',            label: 'Dashboard',     icon: <LayoutDashboard size={14} /> },
-    { type: 'link',     href: '/admin/courses',    label: 'Kurslar',       icon: <BookOpen size={14} /> },
-    { type: 'link',     href: '/admin/groups',     label: 'Guruhlar',      icon: <Users size={14} /> },
-    { type: 'link',     href: '/admin/students',   label: "O'quvchilar",   icon: <GraduationCap size={14} /> },
-    { type: 'link',     href: '/admin/payments',   label: "To'lovlar",     icon: <Wallet size={14} /> },
+    { type: 'link', href: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={14} /> },
     {
-      type: 'dropdown', key: 'hisobot',            label: 'Hisobot',       icon: <TrendingUp size={14} />,
+      type: 'dropdown', key: 'talim', label: "Ta'lim", icon: <BookOpen size={14} />,
       children: [
-        { href: '/admin/reports/finance', label: 'Moliya',       icon: <DollarSign size={13} /> },
-        { href: '/admin/reports/debtors', label: 'Qarzdorlar',   icon: <AlertCircle size={13} /> },
+        { href: '/admin/courses', label: 'Kurslar', icon: <BookOpen size={13} /> },
+        { href: '/admin/groups', label: 'Guruhlar', icon: <Users size={13} /> },
+        { href: '/admin/schedule', label: 'Jadval', icon: <Calendar size={13} /> },
       ],
     },
-    { type: 'link',     href: '/admin/leads',      label: 'Leadlar',       icon: <Target size={14} /> },
-    { type: 'link',     href: '/admin/schedule',   label: 'Jadval',        icon: <Calendar size={14} /> },
-    { type: 'link',     href: '/admin/operators',  label: 'Operatorlar',   icon: <UserCog size={14} /> },
-    { type: 'link',     href: '/admin/teachers',   label: "O'qituvchilar", icon: <School size={14} /> },
-    { type: 'link',     href: '/admin/salary',     label: 'Maosh',         icon: <DollarSign size={14} /> },
-    { type: 'link',     href: '/admin/settings',   label: 'Sozlamalar',    icon: <Settings size={14} /> },
+    { type: 'link', href: '/admin/students', label: "O'quvchilar", icon: <GraduationCap size={14} /> },
+    { type: 'link', href: '/admin/payments', label: "To'lovlar", icon: <Wallet size={14} /> },
+    {
+      type: 'dropdown', key: 'hisobot', label: 'Hisobot', icon: <TrendingUp size={14} />,
+      children: [
+        { href: '/admin/reports/finance', label: 'Moliya', icon: <DollarSign size={13} /> },
+        { href: '/admin/reports/debtors', label: 'Qarzdorlar', icon: <AlertCircle size={13} /> },
+      ],
+    },
+    { type: 'link', href: '/admin/leads', label: 'Leadlar', icon: <Target size={14} /> },
+    { type: 'link', href: '/admin/operators', label: 'Operatorlar', icon: <UserCog size={14} /> },
+    { type: 'link', href: '/admin/teachers', label: "O'qituvchilar", icon: <School size={14} /> },
+    { type: 'link', href: '/admin/salary', label: 'Maosh', icon: <DollarSign size={14} /> },
+    { type: 'link', href: '/admin/settings', label: 'Sozlamalar', icon: <Settings size={14} /> },
   ];
 }
 
 const superadminNav: NavItem[] = [
-  { type: 'link', href: '/superadmin',               label: 'Dashboard',        icon: <LayoutDashboard size={14} /> },
-  { type: 'link', href: '/superadmin/centers',       label: 'Markazlar',        icon: <Users size={14} /> },
-  { type: 'link', href: '/superadmin/plans',         label: 'Tarif paketlari',  icon: <Wallet size={14} /> },
-  { type: 'link', href: '/superadmin/subscriptions', label: 'Obunalar',         icon: <Calendar size={14} /> },
-  { type: 'link', href: '/superadmin/revenue',       label: 'Daromad',          icon: <DollarSign size={14} /> },
-  { type: 'link', href: '/superadmin/users',         label: 'Foydalanuvchilar', icon: <UserCog size={14} /> },
+  { type: 'link', href: '/superadmin', label: 'Dashboard', icon: <LayoutDashboard size={14} /> },
+  { type: 'link', href: '/superadmin/centers', label: 'Markazlar', icon: <Users size={14} /> },
+  { type: 'link', href: '/superadmin/plans', label: 'Tarif paketlari', icon: <Wallet size={14} /> },
+  { type: 'link', href: '/superadmin/subscriptions', label: 'Obunalar', icon: <Calendar size={14} /> },
+  { type: 'link', href: '/superadmin/revenue', label: 'Daromad', icon: <DollarSign size={14} /> },
+  { type: 'link', href: '/superadmin/users', label: 'Foydalanuvchilar', icon: <UserCog size={14} /> },
 ];
 
 function buildOperatorNav(): NavItem[] {
   return [
-    { type: 'link', href: '/operator/leads',    label: 'Leadlar',       icon: <Target size={14} /> },
-    { type: 'link', href: '/operator/students', label: 'Talabalarim',   icon: <GraduationCap size={14} /> },
-    { type: 'link', href: '/operator/payments', label: "To'lovlar",     icon: <Wallet size={14} /> },
-    { type: 'link', href: '/operator/courses',  label: 'Kurslar',       icon: <BookOpen size={14} /> },
-    { type: 'link', href: '/operator/groups',   label: 'Guruhlar',      icon: <Users size={14} /> },
-    { type: 'link', href: '/operator/schedule', label: 'Jadval',        icon: <Calendar size={14} /> },
-    { type: 'link', href: '/operator/salary',   label: 'Maosh',         icon: <DollarSign size={14} /> },
+    { type: 'link', href: '/operator/leads', label: 'Leadlar', icon: <Target size={14} /> },
+    { type: 'link', href: '/operator/students', label: 'Talabalarim', icon: <GraduationCap size={14} /> },
+    { type: 'link', href: '/operator/payments', label: "To'lovlar", icon: <Wallet size={14} /> },
+    { type: 'link', href: '/operator/courses', label: 'Kurslar', icon: <BookOpen size={14} /> },
+    { type: 'link', href: '/operator/groups', label: 'Guruhlar', icon: <Users size={14} /> },
+    { type: 'link', href: '/operator/schedule', label: 'Jadval', icon: <Calendar size={14} /> },
+    { type: 'link', href: '/operator/salary', label: 'Maosh', icon: <DollarSign size={14} /> },
   ];
 }
 
@@ -108,15 +113,12 @@ export default function TopNav() {
 
         {/* Logo */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-sm">
-            <span className="text-white text-[11px] font-black tracking-tight">EC</span>
-          </div>
-          <div className="flex flex-col leading-none">
-            <span className="text-[15px] font-bold text-gray-900">EduCRM</span>
-            {centerName && (
-              <span className="text-[10px] text-gray-400 font-medium mt-0.5">{centerName}</span>
-            )}
-          </div>
+          <span className="text-[15px] font-bold text-gray-900">SmartHub</span>
+          {centerName && (
+            <div className="flex flex-col leading-none">
+              <span className="text-[10px] text-gray-400 font-medium">{centerName}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex-1" />
@@ -156,11 +158,10 @@ export default function TopNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-1.5 px-3 text-[13px] whitespace-nowrap font-medium border-b-2 transition-colors ${
-                  active
+                className={`flex items-center gap-1.5 px-3 text-[13px] whitespace-nowrap font-medium border-b-2 transition-colors ${active
                     ? 'border-indigo-600 text-indigo-700'
                     : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <span className={active ? 'text-indigo-500' : 'text-gray-400'}>{item.icon}</span>
                 {item.label}
@@ -179,11 +180,10 @@ export default function TopNav() {
                   setDropdownLeft(rect.left);
                   setOpenDropdown(open ? null : item.key);
                 }}
-                className={`flex items-center gap-1.5 px-3 text-[13px] whitespace-nowrap font-medium border-b-2 transition-colors ${
-                  active || open
+                className={`flex items-center gap-1.5 px-3 text-[13px] whitespace-nowrap font-medium border-b-2 transition-colors ${active || open
                     ? 'border-indigo-600 text-indigo-700'
                     : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <span className={active || open ? 'text-indigo-500' : 'text-gray-400'}>{item.icon}</span>
                 {item.label}
@@ -203,11 +203,10 @@ export default function TopNav() {
                       key={child.href}
                       href={child.href}
                       onClick={() => setOpenDropdown(null)}
-                      className={`flex items-center gap-2.5 px-4 py-2 text-[13px] transition-colors ${
-                        pathname.startsWith(child.href)
+                      className={`flex items-center gap-2.5 px-4 py-2 text-[13px] transition-colors ${pathname.startsWith(child.href)
                           ? 'text-indigo-700 bg-indigo-50 font-medium'
                           : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
+                        }`}
                     >
                       <span className={pathname.startsWith(child.href) ? 'text-indigo-500' : 'text-gray-400'}>
                         {child.icon}

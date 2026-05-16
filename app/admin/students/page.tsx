@@ -7,6 +7,7 @@ import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import {
   Download, Users, UserCheck, UserX, CircleDollarSign,
   Search, SlidersHorizontal, FileUp, ChevronDown, UserPlus, CreditCard, Eye, Pencil,
@@ -44,8 +45,10 @@ export default function AdminStudentsPage() {
   const [enrollOnCreate, setEnrollOnCreate] = useState(false);
   const [enrollForm, setEnrollForm] = useState({ groupId: '' });
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 15;
   const [payModal, setPayModal] = useState<any>(null);
-  const [payForm, setPayForm] = useState({ amount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
+  const [payForm, setPayForm] = useState({ amount: '', discountAmount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
   const [payConfirm, setPayConfirm] = useState(false);
   const [payLoading, setPayLoading] = useState(false);
   const [monthPaidMap, setMonthPaidMap] = useState<Record<string, number>>({});
@@ -77,7 +80,7 @@ export default function AdminStudentsPage() {
     const pays: any[] = p.data?.data || [];
     pays.forEach((pay: any) => {
       if (!pay.isRefunded && pay.student?.id) {
-        map[pay.student.id] = (map[pay.student.id] || 0) + Number(pay.amount);
+        map[pay.student.id] = (map[pay.student.id] || 0) + Number(pay.amount) + Number(pay.discountAmount || 0);
       }
     });
     setMonthPaidMap(map);
@@ -107,6 +110,9 @@ export default function AdminStudentsPage() {
     if (teacherFilter && activeEnrollment?.group?.teacherId !== teacherFilter) return false;
     return true;
   });
+
+  const totalPages = Math.ceil(byFilter.length / PAGE_SIZE);
+  const paginated = byFilter.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const allChecked = byFilter.length > 0 && byFilter.every(s => selectedIds.has(s.id));
   const someChecked = byFilter.some(s => selectedIds.has(s.id));
@@ -139,6 +145,7 @@ export default function AdminStudentsPage() {
   function clearFilters() {
     setGroupFilter('');
     setTeacherFilter('');
+    setCurrentPage(1);
   }
 
   const counts = {
@@ -233,13 +240,14 @@ export default function AdminStudentsPage() {
     if (!payModal || !payForm.amount) return;
     setPayLoading(true);
     try {
-      await api.post('/payments', {
+      const { data } = await api.post('/payments', {
         studentId: payModal.id, amount: Number(payForm.amount),
+        discountAmount: Number(payForm.discountAmount) || 0,
         method: payForm.method, notes: payForm.notes, type: payForm.type,
       });
       setPayConfirm(false); setPayModal(null);
-      setPayForm({ amount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
-      void load();
+      setPayForm({ amount: '', discountAmount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
+      router.push(`/admin/payments/${data.id}/print`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally { setPayLoading(false); }
@@ -271,24 +279,24 @@ export default function AdminStudentsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="text-xl font-bold text-gray-900 tracking-wide">O&apos;QUVCHILAR</h1>
         <span className="text-sm text-gray-400 font-medium">O&apos;quvchilar</span>
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {statCards.map(({ key, label, count, Icon, bg, active }) => (
           <button
             key={key}
-            onClick={() => setFilter(key)}
-            className={`p-5 rounded-2xl border flex items-center justify-between transition-all shadow-sm hover:shadow-md ${filter === key ? active : 'bg-white border-gray-100'}`}
+            onClick={() => { setFilter(key); setCurrentPage(1); }}
+            className={`p-3 sm:p-5 rounded-2xl border flex items-center justify-between transition-all shadow-sm hover:shadow-md cursor-pointer ${filter === key ? active : 'bg-white border-gray-100'}`}
           >
             <div className="text-left">
-              <p className="text-3xl font-bold text-gray-900 leading-none mb-2">{count}</p>
-              <p className="text-xs font-semibold text-gray-400 tracking-wide">{label}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900 leading-none mb-1.5">{count}</p>
+              <p className="text-[10px] sm:text-xs font-semibold text-gray-400 tracking-wide">{label}</p>
             </div>
-            <div className={`w-12 h-12 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
+            <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl ${bg} flex items-center justify-center shrink-0 [&>svg]:w-4 [&>svg]:h-4 sm:[&>svg]:w-5.5 sm:[&>svg]:h-5.5`}>
               <Icon size={22} className="text-white" />
             </div>
           </button>
@@ -296,20 +304,20 @@ export default function AdminStudentsPage() {
       </div>
 
       {/* Filter bar */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 mb-1 flex items-center gap-3">
-        <div className="relative">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 mb-1 flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-0">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             placeholder="Qidirish ..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm w-52 focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
+            onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+            className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
           />
         </div>
         <div className="relative" ref={filterRef}>
           <button
             onClick={() => setFilterOpen(v => !v)}
-            className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-sm transition-colors ${filterOpen || groupFilter || teacherFilter ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+            className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-sm transition-colors cursor-pointer ${filterOpen || groupFilter || teacherFilter ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
           >
             <SlidersHorizontal size={14} /> Filter
             {(groupFilter || teacherFilter) && (
@@ -322,42 +330,32 @@ export default function AdminStudentsPage() {
           {filterOpen && (
             <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-2xl z-40 w-80 p-4 space-y-3">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Filterlar</p>
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">Guruh</label>
-                <select
-                  value={groupFilter}
-                  onChange={e => setGroupFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
-                >
-                  <option value="">Guruhni tanlang</option>
-                  {groups.map(g => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">O&apos;qituvchi</label>
-                <select
-                  value={teacherFilter}
-                  onChange={e => setTeacherFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
-                >
-                  <option value="">O&apos;qituvchini tanlang</option>
-                  {teachers.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                label="Guruh"
+                value={groupFilter}
+                onChange={e => setGroupFilter(e.target.value)}
+              >
+                <option value="">Guruhni tanlang</option>
+                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </Select>
+              <Select
+                label="O'qituvchi"
+                value={teacherFilter}
+                onChange={e => setTeacherFilter(e.target.value)}
+              >
+                <option value="">O&apos;qituvchini tanlang</option>
+                {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </Select>
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => { clearFilters(); setFilterOpen(false); }}
-                  className="flex-1 flex items-center justify-center gap-2 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   <RotateCcw size={13} /> Tozalash
                 </button>
                 <button
                   onClick={() => setFilterOpen(false)}
-                  className="flex-1 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
+                  className="flex-1 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors cursor-pointer"
                 >
                   Qo&apos;llash
                 </button>
@@ -369,7 +367,7 @@ export default function AdminStudentsPage() {
         <div className="relative" ref={importRef}>
           <button
             onClick={() => setImportOpen(v => !v)}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
           >
             <FileUp size={14} /> Import/Export <ChevronDown size={12} />
           </button>
@@ -407,8 +405,34 @@ export default function AdminStudentsPage() {
         </div>
       )}
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mb-3 mt-2 bg-white rounded-xl border border-gray-100 px-4 py-2.5 shadow-sm">
+          <p className="text-sm text-gray-500">
+            Sahifa {currentPage} / {totalPages} · Jami {byFilter.length} ta
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              ← Oldingi
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Keyingi →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50/50 text-left">
@@ -431,7 +455,7 @@ export default function AdminStudentsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {byFilter.map((s, i) => {
+            {paginated.map((s, i) => {
               const activeEnrollment = s.enrollments?.find((e: any) => e.isActive);
               const price = Number(activeEnrollment?.group?.price || 0);
               const paid = monthPaidMap[s.id] || 0;
@@ -447,7 +471,7 @@ export default function AdminStudentsPage() {
                       className="rounded border-gray-300 cursor-pointer"
                     />
                   </td>
-                  <td className="px-4 py-3.5 text-gray-400 text-xs font-mono">{byFilter.length - i}</td>
+                  <td className="px-4 py-3.5 text-gray-400 text-xs font-mono">{byFilter.length - ((currentPage - 1) * PAGE_SIZE + i)}</td>
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-2.5">
                       <Avatar name={s.name} size="sm" />
@@ -488,7 +512,7 @@ export default function AdminStudentsPage() {
                       <div className="relative group/tip">
                         <button
                           onClick={() => { setSelectedStudent(s); setEnrollForm({ groupId: '' }); setModal(activeEnrollment ? 'changeGroup' : 'enroll'); }}
-                          className="w-8 h-8 rounded-lg bg-green-500 hover:bg-green-600 flex items-center justify-center text-white transition-colors"
+                          className="w-8 h-8 rounded-lg bg-green-500 hover:bg-green-600 flex items-center justify-center text-white transition-colors cursor-pointer"
                         >
                           <UserPlus size={14} />
                         </button>
@@ -500,7 +524,7 @@ export default function AdminStudentsPage() {
                       <div className="relative group/tip">
                         <button
                           onClick={() => router.push(`/admin/students/payment/${s.id}`)}
-                          className="w-8 h-8 rounded-lg bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors"
+                          className="w-8 h-8 rounded-lg bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors cursor-pointer"
                         >
                           <CreditCard size={14} />
                         </button>
@@ -512,7 +536,7 @@ export default function AdminStudentsPage() {
                       <div className="relative group/tip">
                         <button
                           onClick={() => router.push(`/admin/students/${s.id}`)}
-                          className="w-8 h-8 rounded-lg bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors"
+                          className="w-8 h-8 rounded-lg bg-indigo-500 hover:bg-indigo-600 flex items-center justify-center text-white transition-colors cursor-pointer"
                         >
                           <Eye size={14} />
                         </button>
@@ -524,7 +548,7 @@ export default function AdminStudentsPage() {
                       <div className="relative group/tip">
                         <button
                           onClick={() => { setSelectedStudent(s); setForm({ name: s.name || '', surname: s.surname || '', phone: s.phone || '', parentPhone: s.parentPhone || '', gender: s.gender || 'MALE', birthDate: s.birthDate ? s.birthDate.split('T')[0] : '', notes: s.notes || '', groupId: '' }); setModal('edit'); }}
-                          className="w-8 h-8 rounded-lg bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors"
+                          className="w-8 h-8 rounded-lg bg-amber-500 hover:bg-amber-600 flex items-center justify-center text-white transition-colors cursor-pointer"
                         >
                           <Pencil size={14} />
                         </button>
@@ -537,7 +561,7 @@ export default function AdminStudentsPage() {
                 </tr>
               );
             })}
-            {byFilter.length === 0 && (
+            {paginated.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-5 py-14 text-center text-gray-400">
                   O&apos;quvchilar topilmadi
@@ -546,6 +570,7 @@ export default function AdminStudentsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Bulk action bar */}
@@ -635,16 +660,12 @@ export default function AdminStudentsPage() {
 
       <Modal open={modal === 'enroll'} onClose={() => setModal(null)} title={`Guruhga yozish — ${selectedStudent?.name}`} size="sm">
         <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1.5">Guruh *</label>
-            <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={enrollForm.groupId} onChange={e => setEnrollForm({ groupId: e.target.value })}>
-              <option value="">— Guruhni tanlang —</option>
-              {groups.filter(g => g.status === 'GATHERING' || g.status === 'ACTIVE').map(g => (
-                <option key={g.id} value={g.id}>{g.name} · {g.course?.name}</option>
-              ))}
-            </select>
-          </div>
+          <Select label="Guruh *" value={enrollForm.groupId} onChange={e => setEnrollForm({ groupId: e.target.value })}>
+            <option value="">— Guruhni tanlang —</option>
+            {groups.filter(g => g.status === 'GATHERING' || g.status === 'ACTIVE').map(g => (
+              <option key={g.id} value={g.id}>{g.name} · {g.course?.name}</option>
+            ))}
+          </Select>
           <div className="flex gap-3 pt-2">
             <Button onClick={() => void enrollStudent()} loading={loading} className="flex-1">Guruhga yozish</Button>
             <Button variant="secondary" onClick={() => setModal(null)} className="flex-1">Bekor</Button>
@@ -660,20 +681,16 @@ export default function AdminStudentsPage() {
               {selectedStudent?.enrollments?.find((e: any) => e.isActive)?.group?.name}
             </p>
           </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1.5">Yangi guruh *</label>
-            <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={enrollForm.groupId} onChange={e => setEnrollForm({ groupId: e.target.value })}>
-              <option value="">— Guruhni tanlang —</option>
-              {groups.filter(g => {
-                if (g.status !== 'GATHERING' && g.status !== 'ACTIVE') return false;
-                const cur = selectedStudent?.enrollments?.find((e: any) => e.isActive)?.groupId;
-                return g.id !== cur;
-              }).map(g => (
-                <option key={g.id} value={g.id}>{g.name} · {g.course?.name}</option>
-              ))}
-            </select>
-          </div>
+          <Select label="Yangi guruh *" value={enrollForm.groupId} onChange={e => setEnrollForm({ groupId: e.target.value })}>
+            <option value="">— Guruhni tanlang —</option>
+            {groups.filter(g => {
+              if (g.status !== 'GATHERING' && g.status !== 'ACTIVE') return false;
+              const cur = selectedStudent?.enrollments?.find((e: any) => e.isActive)?.groupId;
+              return g.id !== cur;
+            }).map(g => (
+              <option key={g.id} value={g.id}>{g.name} · {g.course?.name}</option>
+            ))}
+          </Select>
           <div className="flex gap-3 pt-2">
             <Button onClick={() => void changeGroup()} loading={loading} className="flex-1">Almashtirish</Button>
             <Button variant="secondary" onClick={() => setModal(null)} className="flex-1">Bekor</Button>
@@ -713,22 +730,18 @@ export default function AdminStudentsPage() {
           <div className="border-t border-gray-100 pt-4 space-y-3">
             <div className="flex items-center gap-3">
               <button type="button" onClick={() => setEnrollOnCreate(v => !v)}
-                className={`relative w-10 h-6 rounded-full transition-colors ${enrollOnCreate ? 'bg-indigo-600' : 'bg-gray-200'}`}>
+                className={`relative w-10 h-6 rounded-full transition-colors cursor-pointer ${enrollOnCreate ? 'bg-indigo-600' : 'bg-gray-200'}`}>
                 <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${enrollOnCreate ? 'left-5' : 'left-1'}`} />
               </button>
               <span className="text-sm font-medium text-gray-700">Guruhga biriktirish</span>
             </div>
             {enrollOnCreate && (
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1.5">Guruh</label>
-                <select value={form.groupId} onChange={e => setForm(p => ({ ...p, groupId: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30">
-                  <option value="">— Guruhni tanlang —</option>
-                  {groups.filter(g => g.status === 'GATHERING' || g.status === 'ACTIVE').map(g => (
-                    <option key={g.id} value={g.id}>{g.name} · {g.course?.name}</option>
-                  ))}
-                </select>
-              </div>
+              <Select label="Guruh" value={form.groupId} onChange={e => setForm(p => ({ ...p, groupId: e.target.value }))}>
+                <option value="">— Guruhni tanlang —</option>
+                {groups.filter(g => g.status === 'GATHERING' || g.status === 'ACTIVE').map(g => (
+                  <option key={g.id} value={g.id}>{g.name} · {g.course?.name}</option>
+                ))}
+              </Select>
             )}
           </div>
           <div className="flex gap-3 pt-2">
@@ -740,26 +753,20 @@ export default function AdminStudentsPage() {
 
       <Modal open={!!payModal} onClose={() => setPayModal(null)} title={`To'lov · ${payModal?.name ?? ''}`} size="sm">
         <div className="space-y-4">
-          <Input label="Miqdor (so'm) *" type="number" value={payForm.amount}
-            onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} placeholder="0" onWheel={e => e.currentTarget.blur()} />
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1.5">Usul</label>
-            <select className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
-              value={payForm.method} onChange={e => setPayForm(p => ({ ...p, method: e.target.value }))}>
-              <option value="CASH">Naqd</option>
-              <option value="PAYME">Payme</option>
-              <option value="CLICK">Click</option>
-              <option value="BANK_TRANSFER">Bank o&apos;tkazmasi</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1.5">Tur</label>
-            <select className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
-              value={payForm.type} onChange={e => setPayForm(p => ({ ...p, type: e.target.value }))}>
-              <option value="MONTHLY">Oylik</option>
-              <option value="ADVANCE">Avans</option>
-            </select>
-          </div>
+          <Input label="Miqdor (so'm) *" type="text" value={payForm.amount ? Number(payForm.amount).toLocaleString('en-US') : ''}
+            onChange={e => setPayForm(p => ({ ...p, amount: e.target.value.replace(/\D/g, '') }))} placeholder="0" />
+          <Input label="Chegirma (so'm)" type="text" value={payForm.discountAmount ? Number(payForm.discountAmount).toLocaleString('en-US') : ''}
+            onChange={e => setPayForm(p => ({ ...p, discountAmount: e.target.value.replace(/\D/g, '') }))} placeholder="0" />
+          <Select label="Usul" value={payForm.method} onChange={e => setPayForm(p => ({ ...p, method: e.target.value }))}>
+            <option value="CASH">Naqd</option>
+            <option value="PAYME">Payme</option>
+            <option value="CLICK">Click</option>
+            <option value="BANK_TRANSFER">Bank o&apos;tkazmasi</option>
+          </Select>
+          <Select label="Tur" value={payForm.type} onChange={e => setPayForm(p => ({ ...p, type: e.target.value }))}>
+            <option value="MONTHLY">Oylik</option>
+            <option value="ADVANCE">Avans</option>
+          </Select>
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-1.5">Izoh</label>
             <textarea className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30" rows={2}
@@ -791,7 +798,7 @@ export default function AdminStudentsPage() {
         <div className="space-y-4">
           <p className="text-sm text-gray-600"><span className="font-semibold text-gray-900">{payModal?.name}</span> uchun to&apos;lovni tasdiqlaysizmi?</p>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-            {[['Miqdor', `${Number(payForm.amount).toLocaleString()} so'm`], ['Usul', { CASH: 'Naqd', PAYME: 'Payme', CLICK: 'Click', BANK_TRANSFER: 'Bank' }[payForm.method] ?? payForm.method], ['Tur', payForm.type === 'MONTHLY' ? 'Oylik' : 'Avans']].map(([k, v]) => (
+            {[['Miqdor', `${Number(payForm.amount).toLocaleString()} so'm`], ['Chegirma', `${(Number(payForm.discountAmount) || 0).toLocaleString()} so'm`], ['Usul', { CASH: 'Naqd', PAYME: 'Payme', CLICK: 'Click', BANK_TRANSFER: 'Bank' }[payForm.method] ?? payForm.method], ['Tur', payForm.type === 'MONTHLY' ? 'Oylik' : 'Avans']].map(([k, v]) => (
               <div key={k} className="flex justify-between text-sm">
                 <span className="text-gray-600">{k}:</span>
                 <span className="font-semibold">{v}</span>

@@ -97,7 +97,7 @@ export default function EnrollPage() {
         setPaymentAmount(g.data.price ? String(g.data.price) : '');
         setStudents(s.data);
       })
-      .catch(console.error)
+      .catch(() => toast.error('Ma\'lumotlar yuklanmadi'))
       .finally(() => setPageLoading(false));
   }, [id]);
 

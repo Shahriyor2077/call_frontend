@@ -6,7 +6,7 @@ import api from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
-import { MoreVertical, BookOpen } from 'lucide-react';
+import { MoreVertical, BookOpen, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/ToastProvider';
 
 export default function CoursesPage() {
@@ -20,6 +20,8 @@ export default function CoursesPage() {
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', description: '' });
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 15;
 
   async function load() {
     const { data } = await api.get('/courses');
@@ -88,8 +90,24 @@ export default function CoursesPage() {
         <Button onClick={openCreate}>+ Yangi kurs</Button>
       </div>
 
+      {Math.ceil(courses.length / PAGE_SIZE) > 1 && (
+        <div className="flex items-center justify-between mt-4 mb-2 bg-white rounded-xl border border-gray-100 px-4 py-2.5 shadow-sm">
+          <p className="text-sm text-gray-500">Sahifa {currentPage} / {Math.ceil(courses.length / PAGE_SIZE)} · Jami {courses.length} ta</p>
+          <div className="flex gap-2">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
+              ← Oldingi
+            </button>
+            <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(courses.length / PAGE_SIZE), p + 1))} disabled={currentPage === Math.ceil(courses.length / PAGE_SIZE)}
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
+              Keyingi →
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
-        {courses.map((c, idx) => {
+        {courses.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map((c, idx) => {
           const totalStudents = (c.groups ?? []).reduce((s: number, g: any) => s + (g._count?.enrollments ?? 0), 0);
           const teacher = (c.groups ?? []).find((g: any) => g.teacher)?.teacher;
           const gradients = [
@@ -116,14 +134,14 @@ export default function CoursesPage() {
                 <div className="relative">
                   <button
                     onClick={e => { e.stopPropagation(); setMenuOpen(menuOpen === c.id ? null : c.id); }}
-                    className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 transition-colors"
+                    className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 transition-colors cursor-pointer"
                   >
                     <MoreVertical size={15} />
                   </button>
                   {menuOpen === c.id && (
                     <div className="absolute right-0 top-9 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-10 w-36">
-                      <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700">Tahrirlash</button>
-                      <button onClick={e => { e.stopPropagation(); openDelete(c); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">O&apos;chirish</button>
+                      <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700 cursor-pointer">Tahrirlash</button>
+                      <button onClick={e => { e.stopPropagation(); openDelete(c); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer">O&apos;chirish</button>
                     </div>
                   )}
                 </div>
@@ -178,7 +196,7 @@ export default function CoursesPage() {
               value={form.description}
               onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
               placeholder="Kurs haqida qisqacha ma'lumot..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 min-h-25"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 min-h-25"
             />
           </div>
           <div className="flex gap-3 pt-2">
@@ -190,12 +208,22 @@ export default function CoursesPage() {
 
       <Modal open={deleteModal} onClose={() => setDeleteModal(false)} title="Kursni o'chirish">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            <span className="font-semibold text-gray-900">{deleting?.name}</span> kursini o'chirishni xohlaysizmi?
-          </p>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <p className="text-sm text-amber-800">
-              ⚠️ Bu amal qaytarilmaydi. Kurs va unga tegishli barcha guruhlar o'chiriladi.
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+              <AlertTriangle size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                "{deleting?.name}" kursini o'chirmoqchimisiz?
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                Bu amal bajarilgandan keyin kursni qayta tiklab bo'lmaydi.
+              </p>
+            </div>
+          </div>
+          <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+            <p className="text-sm text-red-700">
+              Kursga bog'langan barcha guruhlar ham o'chiriladi. Davom etishdan oldin ma'lumotlarni tekshirib oling.
             </p>
           </div>
           <div className="flex gap-3 pt-2">

@@ -5,6 +5,7 @@ import api from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import Badge from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/ToastProvider';
 
@@ -143,6 +144,7 @@ export default function SuperadminUsersPage() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr className="text-left text-gray-500">
@@ -186,6 +188,7 @@ export default function SuperadminUsersPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <Modal open={modal === 'create'} onClose={() => setModal(null)} title="Admin yaratish">
@@ -193,14 +196,10 @@ export default function SuperadminUsersPage() {
           <Input label="Ism *" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
           <Input label="Telefon *" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="+998901234567" />
           <Input label="Parol *" type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} />
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">Markaz *</label>
-            <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" value={form.centerId}
-              onChange={e => setForm(p => ({ ...p, centerId: e.target.value }))}>
-              <option value="">— Markaz tanlang —</option>
-              {centers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
+          <Select label="Markaz *" value={form.centerId} onChange={e => setForm(p => ({ ...p, centerId: e.target.value }))}>
+            <option value="">— Markaz tanlang —</option>
+            {centers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
           <div className="flex gap-3 pt-2">
             <Button onClick={() => void createAdmin()} loading={loading} className="flex-1">Saqlash</Button>
             <Button variant="secondary" onClick={() => setModal(null)} className="flex-1">Bekor</Button>
@@ -213,14 +212,10 @@ export default function SuperadminUsersPage() {
           <Input label="Ism *" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
           <Input label="Telefon *" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="+998901234567" />
           <Input label="Yangi parol (ixtiyoriy)" type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} placeholder="Bo'sh qoldiring agar o'zgartirmasangiz" />
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">Markaz *</label>
-            <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" value={form.centerId}
-              onChange={e => setForm(p => ({ ...p, centerId: e.target.value }))}>
-              <option value="">— Markaz tanlang —</option>
-              {centers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
+          <Select label="Markaz *" value={form.centerId} onChange={e => setForm(p => ({ ...p, centerId: e.target.value }))}>
+            <option value="">— Markaz tanlang —</option>
+            {centers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
           <div className="flex gap-3 pt-2">
             <Button onClick={() => void updateUser()} loading={loading} className="flex-1">Saqlash</Button>
             <Button variant="secondary" onClick={() => setModal(null)} className="flex-1">Bekor</Button>

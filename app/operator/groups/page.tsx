@@ -1,14 +1,39 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
+import Select from '@/components/ui/Select';
+import { Users, CheckCircle2, Clock, Archive } from 'lucide-react';
 import { useToast } from '@/components/ui/ToastProvider';
+
+const DAYS_OPTIONS = [
+  { value: 'DU', label: 'Du' },
+  { value: 'SE', label: 'Se' },
+  { value: 'CH', label: 'Chor' },
+  { value: 'PA', label: 'Pa' },
+  { value: 'JU', label: 'Ju' },
+  { value: 'SH', label: 'Sh' },
+  { value: 'YA', label: 'Yk' },
+];
 
 const STATUS_LABELS: Record<string, string> = {
   GATHERING: "To'plash", ACTIVE: 'Faol', COMPLETED: 'Yakunlangan', CANCELLED: 'Bekor',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  ACTIVE: 'bg-green-50 text-green-700',
+  GATHERING: 'bg-blue-50 text-blue-700',
+  COMPLETED: 'bg-gray-100 text-gray-500',
+  CANCELLED: 'bg-red-50 text-red-500',
+};
+
+const STATUS_DOT: Record<string, string> = {
+  ACTIVE: 'bg-green-500', GATHERING: 'bg-blue-500', COMPLETED: 'bg-gray-400', CANCELLED: 'bg-red-400',
 };
 
 const MONTHS = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
@@ -27,12 +52,16 @@ const METHOD_COLOR: Record<string, string> = {
 
 export default function OperatorGroupsPage() {
   const toast = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [groups, setGroups] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [search, setSearch] = useState('');
-  const [filterCourse, setFilterCourse] = useState('');
+  const [filterCourse, setFilterCourse] = useState(searchParams.get('courseId') ?? '');
   const [filterStatus, setFilterStatus] = useState('');
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 15;
 
   const [studentsModal, setStudentsModal] = useState<any>(null);
   const [students, setStudents] = useState<any[]>([]);
@@ -43,7 +72,7 @@ export default function OperatorGroupsPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const [paymentModal, setPaymentModal] = useState<any>(null);
-  const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
+  const [paymentForm, setPaymentForm] = useState({ amount: '', discountAmount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
   const [paymentConfirm, setPaymentConfirm] = useState(false);
   const [payLoading, setPayLoading] = useState(false);
 
@@ -53,8 +82,8 @@ export default function OperatorGroupsPage() {
       const [g, c] = await Promise.all([api.get('/groups'), api.get('/courses')]);
       setGroups(g.data);
       setCourses(c.data);
-    } catch (err) {
-      console.error('Yuklanmadi:', err);
+    } catch {
+      toast.error('Guruhlar yuklanmadi');
     } finally {
       setLoading(false);
     }
@@ -90,7 +119,7 @@ export default function OperatorGroupsPage() {
 
             const monthTotal = allPayments
               .filter(p => !p.isRefunded && new Date(p.paidAt) >= startOfMonth)
-              .reduce((sum, p) => sum + Number(p.amount), 0);
+              .reduce((sum, p) => sum + Number(p.amount) + Number(p.discountAmount || 0), 0);
 
             const debt = groupPrice > 0 ? Math.max(0, groupPrice - monthTotal) : 0;
             const overpayment = groupPrice > 0 ? Math.max(0, monthTotal - groupPrice) : 0;
@@ -103,8 +132,8 @@ export default function OperatorGroupsPage() {
       );
 
       setStudents(studentsWithPayments);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      toast.error('Talabalar yuklanmadi');
     } finally {
       setStudentsLoading(false);
     }
@@ -127,21 +156,23 @@ export default function OperatorGroupsPage() {
     if (!paymentModal || !paymentForm.amount) return;
     setPayLoading(true);
     try {
-      await api.post('/payments', {
+      const { data: payment } = await api.post('/payments', {
         studentId: paymentModal.id,
         amount: Number(paymentForm.amount),
+        discountAmount: Number(paymentForm.discountAmount) || 0,
         method: paymentForm.method,
         notes: paymentForm.notes,
         type: paymentForm.type,
       });
       setPaymentConfirm(false);
       setPaymentModal(null);
-      setPaymentForm({ amount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
+      setPaymentForm({ amount: '', discountAmount: '', method: 'CASH', notes: '', type: 'MONTHLY' });
       if (studentsModal) await viewStudents(studentsModal);
       if (studentHistory?.id === paymentModal.id) {
         const { data } = await api.get(`/payments?studentId=${paymentModal.id}&limit=100`);
         setStudentHistoryPayments(data.data || []);
       }
+      router.push(`/admin/payments/${payment.id}/print`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
@@ -156,114 +187,170 @@ export default function OperatorGroupsPage() {
     return true;
   });
 
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const statCards = [
+    { label: 'Guruhlar', value: groups.length, filter: '', icon: <Users size={20} />, from: 'from-indigo-500', to: 'to-violet-600', activeBg: 'bg-indigo-50 border-indigo-200' },
+    { label: 'Faol guruhlar', value: groups.filter(g => g.status === 'ACTIVE').length, filter: 'ACTIVE', icon: <CheckCircle2 size={20} />, from: 'from-emerald-400', to: 'to-teal-600', activeBg: 'bg-emerald-50 border-emerald-200' },
+    { label: "To'plash", value: groups.filter(g => g.status === 'GATHERING').length, filter: 'GATHERING', icon: <Clock size={20} />, from: 'from-amber-400', to: 'to-orange-500', activeBg: 'bg-amber-50 border-amber-200' },
+    { label: 'Yakunlangan', value: groups.filter(g => g.status === 'COMPLETED').length, filter: 'COMPLETED', icon: <Archive size={20} />, from: 'from-rose-400', to: 'to-red-600', activeBg: 'bg-rose-50 border-rose-200' },
+  ];
+
   return (
     <div>
-      <div className="flex items-start justify-between mb-2">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Guruhlar</h1>
           <p className="text-sm text-gray-400 mt-0.5">Faol va rejalashtirilgan o&apos;quv guruhlari.</p>
         </div>
       </div>
 
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        {statCards.map(s => {
+          const active = filterStatus === s.filter;
+          return (
+            <button
+              key={s.filter}
+              onClick={() => { setFilterStatus(active ? '' : s.filter); setCurrentPage(1); }}
+              className={`text-left p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all cursor-pointer ${active ? s.activeBg : 'bg-white border-gray-100'}`}
+            >
+              <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${s.from} ${s.to} flex items-center justify-center text-white mb-3 shadow-sm`}>
+                {s.icon}
+              </div>
+              <p className="text-2xl font-bold text-gray-900 leading-none mb-1">{s.value}</p>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{s.label}</p>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Filters */}
-      <div className="flex items-center gap-3 mt-5 mb-4">
-        <div className="relative">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="relative w-full sm:w-52">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
           </svg>
           <input
             placeholder="Guruh nomi..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm w-52 focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
+            onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+            className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
           />
         </div>
-        <select
-          value={filterCourse}
-          onChange={e => setFilterCourse(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none"
-        >
+        <Select value={filterCourse} onChange={e => { setFilterCourse(e.target.value); setCurrentPage(1); }}>
           <option value="">Barcha kurslar</option>
           {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select
-          value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none"
-        >
+        </Select>
+        <Select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }}>
           <option value="">Barcha holatlar</option>
           {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
+        </Select>
         <span className="ml-auto text-sm text-gray-400 bg-gray-100 px-3 py-1.5 rounded-xl">{filtered.length} ta</span>
       </div>
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mb-3 bg-white rounded-xl border border-gray-100 px-4 py-2.5 shadow-sm">
+          <p className="text-sm text-gray-500">
+            Sahifa {currentPage} / {totalPages} · Jami {filtered.length} ta
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              ← Oldingi
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Keyingi →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
-      <div className="bg-white rounded-xl border overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left border-b">
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">GURUH</th>
+            <tr className="border-b border-gray-100 bg-gray-50/50 text-left">
+              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide rounded-tl-2xl">GURUH</th>
               <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">KURS</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">NARX</th>
               <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">O&apos;QITUVCHI</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">JADVAL</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">XONA</th>
               <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">TALABALAR</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">HOLAT</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">BOSHLANISH</th>
+              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">NARX</th>
+              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide rounded-tr-2xl">HOLAT</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {loading ? (
-              <tr><td colSpan={9} className="px-5 py-12 text-center text-gray-400">Yuklanmoqda...</td></tr>
-            ) : filtered.map(g => {
+              <tr><td colSpan={6} className="px-5 py-12 text-center text-gray-400">Yuklanmoqda...</td></tr>
+            ) : paginated.map(g => {
               const enrolled = g._count?.enrollments ?? 0;
               const pct = Math.min(100, (enrolled / (g.maxStudents || 1)) * 100);
               return (
-                <tr key={g.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => viewStudents(g)}>
-                  <td className="px-5 py-4 font-medium text-gray-900">{g.name}</td>
-                  <td className="px-5 py-4 text-indigo-600 font-medium">{g.course?.name}</td>
-                  <td className="px-5 py-4 text-gray-900 font-semibold">
-                    {g.price ? `${Number(g.price).toLocaleString()} so'm` : <span className="text-gray-300">—</span>}
+                <tr key={g.id} className="hover:bg-gray-50/60 transition-colors cursor-pointer" onClick={() => viewStudents(g)}>
+                  <td className="px-5 py-3.5">
+                    <div>
+                      <p className="font-semibold text-gray-900">{g.name}</p>
+                      {(g.days?.length > 0 || g.startTime) && (
+                        <div className="flex items-center gap-1 mt-1 flex-wrap">
+                          {(g.days || []).map((d: string) => (
+                            <span key={d} className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-medium">
+                              {DAYS_OPTIONS.find(x => x.value === d)?.label ?? d}
+                            </span>
+                          ))}
+                          {g.startTime && (
+                            <span className="text-[10px] text-gray-400">{g.startTime}–{g.endTime}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </td>
-                  <td className="px-5 py-4">
+                  <td className="px-5 py-3.5">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold">
+                      {g.course?.name ?? '—'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3.5">
                     {g.teacher ? (
                       <div className="flex items-center gap-2">
                         <Avatar name={g.teacher.name} size="sm" />
-                        <span className="text-gray-700">{g.teacher.name}</span>
+                        <span className="text-gray-700 text-sm">{g.teacher.name}</span>
                       </div>
-                    ) : <span className="text-gray-300">—</span>}
+                    ) : <span className="text-gray-300 text-sm">—</span>}
                   </td>
-                  <td className="px-5 py-4 text-xs text-gray-500">
-                    <div>{g.days?.join(', ')}</div>
-                    <div className="text-gray-400">{g.startTime}–{g.endTime}</div>
-                  </td>
-                  <td className="px-5 py-4 text-gray-600">{g.room || g.platform || <span className="text-gray-300">—</span>}</td>
-                  <td className="px-5 py-4">
+                  <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900">{enrolled}/{g.maxStudents}</span>
-                      <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <span className="font-semibold text-gray-900 text-sm">{enrolled}/{g.maxStudents}</span>
+                      <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-4">
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${g.status === 'ACTIVE' ? 'bg-green-50 text-green-700'
-                      : g.status === 'GATHERING' ? 'bg-blue-50 text-blue-700'
-                        : 'bg-gray-100 text-gray-500'
-                      }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${g.status === 'ACTIVE' ? 'bg-green-500' : g.status === 'GATHERING' ? 'bg-blue-500' : 'bg-gray-400'}`} />
+                  <td className="px-5 py-3.5 font-semibold text-gray-900 text-sm">
+                    {g.price ? `${Number(g.price).toLocaleString('uz-UZ')} so'm` : <span className="text-gray-300 font-normal">—</span>}
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full ${STATUS_COLORS[g.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[g.status]}`} />
                       {STATUS_LABELS[g.status] ?? g.status}
                     </span>
-                  </td>
-                  <td className="px-5 py-4 text-gray-400 text-xs">
-                    {g.startDate ? new Date(g.startDate).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                   </td>
                 </tr>
               );
             })}
-            {!loading && filtered.length === 0 && (
-              <tr><td colSpan={9} className="px-5 py-12 text-center text-gray-400">Guruhlar topilmadi</td></tr>
+            {!loading && paginated.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-5 py-14 text-center text-gray-400">Guruhlar topilmadi</td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -272,12 +359,11 @@ export default function OperatorGroupsPage() {
       {/* Students Modal */}
       <Modal open={!!studentsModal} onClose={() => { setStudentsModal(null); setStudents([]); }} title={`${studentsModal?.name} — Talabalar`} size="xl">
         <div>
-          {/* Group info bar */}
           <div className="flex items-center gap-4 mb-5 p-4 bg-gray-50 rounded-xl">
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Kurs narxi</span>
               <span className="text-lg font-bold text-gray-900">
-                {studentsModal?.price ? Number(studentsModal.price).toLocaleString() + ' so\'m' : '—'}
+                {studentsModal?.price ? Number(studentsModal.price).toLocaleString() + " so'm" : '—'}
               </span>
             </div>
             <div className="w-px h-6 bg-gray-200" />
@@ -304,7 +390,6 @@ export default function OperatorGroupsPage() {
                 <thead>
                   <tr className="border-b bg-gray-50">
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Talaba</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Qo&apos;shgan</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Oxirgi to&apos;lov</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Keyingi to&apos;lov</th>
                     {studentsModal?.price && (
@@ -340,15 +425,6 @@ export default function OperatorGroupsPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3.5">
-                          {student.addedBy ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full bg-indigo-50 text-indigo-700">
-                              {student.addedBy.name}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-300">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5">
                           {student.lastPayment ? (
                             <div>
                               <p className="text-sm text-gray-700 font-medium">{fmtD(student.lastPayment.paidAt)}</p>
@@ -378,12 +454,10 @@ export default function OperatorGroupsPage() {
                         {studentsModal?.price && (
                           <td className="px-4 py-3.5">
                             {hasOverpayment ? (
-                              <div>
-                                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                  +{Number(student.overpayment).toLocaleString()} so&apos;m ortiqcha
-                                </span>
-                              </div>
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                +{Number(student.overpayment).toLocaleString()} so&apos;m ortiqcha
+                              </span>
                             ) : isPaidFull ? (
                               <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-green-50 text-green-700">
                                 <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
@@ -406,6 +480,7 @@ export default function OperatorGroupsPage() {
                               setPaymentModal(student);
                               setPaymentForm({
                                 amount: student.debt > 0 ? String(student.debt) : (studentsModal?.price ? String(studentsModal.price) : ''),
+                                discountAmount: '',
                                 method: 'CASH',
                                 notes: '',
                                 type: 'MONTHLY',
@@ -446,7 +521,7 @@ export default function OperatorGroupsPage() {
             <div className="text-right">
               <p className="text-xs text-gray-400 mb-0.5">Jami to&apos;langan</p>
               <p className="text-xl font-bold text-green-700">
-                {studentHistoryPayments.filter(p => !p.isRefunded).reduce((s, p) => s + Number(p.amount), 0).toLocaleString()} so&apos;m
+                {studentHistoryPayments.filter(p => !p.isRefunded).reduce((s, p) => s + Number(p.amount) + Number(p.discountAmount || 0), 0).toLocaleString()} so&apos;m
               </p>
               <p className="text-xs text-gray-400">
                 {studentHistoryPayments.filter(p => !p.isRefunded).length} ta to&apos;lov
@@ -499,6 +574,11 @@ export default function OperatorGroupsPage() {
                         <td className="px-4 py-3 text-right">
                           <span className={`font-semibold ${p.isRefunded ? 'line-through text-gray-400' : 'text-green-700'}`}>
                             {p.isRefunded ? '' : '+'}{Number(p.amount).toLocaleString()} so&apos;m
+                            {Number(p.discountAmount || 0) > 0 && (
+                              <span className="ml-2 text-xs text-amber-600">
+                                chegirma {Number(p.discountAmount).toLocaleString()} so&apos;m
+                              </span>
+                            )}
                           </span>
                           {p.isRefunded && <span className="ml-1 text-xs text-red-500">qaytarilgan</span>}
                         </td>
@@ -516,6 +596,7 @@ export default function OperatorGroupsPage() {
                 setPaymentModal(studentHistory);
                 setPaymentForm({
                   amount: studentHistory?.debt > 0 ? String(studentHistory.debt) : (studentsModal?.price ? String(studentsModal.price) : ''),
+                  discountAmount: '',
                   method: 'CASH',
                   notes: '',
                   type: 'MONTHLY',
@@ -535,29 +616,33 @@ export default function OperatorGroupsPage() {
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-1.5">Miqdor (so&apos;m) *</label>
             <input
-              type="number"
+              type="text"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={paymentForm.amount}
-              onChange={e => setPaymentForm(p => ({ ...p, amount: e.target.value }))}
+              value={paymentForm.amount ? Number(paymentForm.amount).toLocaleString('en-US') : ''}
+              onChange={e => setPaymentForm(p => ({ ...p, amount: e.target.value.replace(/\D/g, '') }))}
               placeholder="0"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1.5">Usul</label>
-            <select className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" value={paymentForm.method} onChange={e => setPaymentForm(p => ({ ...p, method: e.target.value }))}>
-              <option value="CASH">Naqd</option>
-              <option value="PAYME">Payme</option>
-              <option value="CLICK">Click</option>
-              <option value="BANK_TRANSFER">Bank o&apos;tkazmasi</option>
-            </select>
+            <label className="text-sm font-medium text-gray-700 block mb-1.5">Chegirma (so&apos;m)</label>
+            <input
+              type="text"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={paymentForm.discountAmount ? Number(paymentForm.discountAmount).toLocaleString('en-US') : ''}
+              onChange={e => setPaymentForm(p => ({ ...p, discountAmount: e.target.value.replace(/\D/g, '') }))}
+              placeholder="0"
+            />
           </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1.5">Tur</label>
-            <select className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" value={paymentForm.type} onChange={e => setPaymentForm(p => ({ ...p, type: e.target.value }))}>
-              <option value="MONTHLY">Oylik</option>
-              <option value="ADVANCE">Avans</option>
-            </select>
-          </div>
+          <Select label="Usul" value={paymentForm.method} onChange={e => setPaymentForm(p => ({ ...p, method: e.target.value }))}>
+            <option value="CASH">Naqd</option>
+            <option value="PAYME">Payme</option>
+            <option value="CLICK">Click</option>
+            <option value="BANK_TRANSFER">Bank o&apos;tkazmasi</option>
+          </Select>
+          <Select label="Tur" value={paymentForm.type} onChange={e => setPaymentForm(p => ({ ...p, type: e.target.value }))}>
+            <option value="MONTHLY">Oylik</option>
+            <option value="ADVANCE">Avans</option>
+          </Select>
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-1.5">Izoh</label>
             <textarea className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30" rows={2} value={paymentForm.notes} onChange={e => setPaymentForm(p => ({ ...p, notes: e.target.value }))} />
@@ -587,6 +672,10 @@ export default function OperatorGroupsPage() {
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Miqdor:</span>
               <span className="font-semibold">{Number(paymentForm.amount).toLocaleString()} so&apos;m</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Chegirma:</span>
+              <span className="font-semibold">{(Number(paymentForm.discountAmount) || 0).toLocaleString()} so&apos;m</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Usul:</span>

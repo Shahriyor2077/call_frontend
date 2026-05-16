@@ -5,6 +5,7 @@ import api from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import Badge from '@/components/ui/Badge';
 import Avatar from '@/components/ui/Avatar';
 import { Center } from '@/types';
@@ -154,6 +155,7 @@ export default function CentersPage() {
 
       {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 text-left text-gray-400 text-xs font-medium">
@@ -247,6 +249,7 @@ export default function CentersPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Create modal */}
@@ -275,21 +278,18 @@ export default function CentersPage() {
       {/* Assign plan modal */}
       <Modal open={modal === 'assign'} onClose={() => setModal(null)} title={`Tarif belgilash — ${selected?.name}`}>
         <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">Tarif tanlang</label>
-            <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-              value={assignForm.planId}
-              onChange={e => setAssignForm(p => ({ ...p, planId: e.target.value, days: '' }))}
-            >
-              <option value="">— Tarif tanlang —</option>
-              {plans.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} — {Number(p.price).toLocaleString()} so'm / {p.durationDays} kun
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            label="Tarif tanlang"
+            value={assignForm.planId}
+            onChange={e => setAssignForm(p => ({ ...p, planId: e.target.value, days: '' }))}
+          >
+            <option value="">— Tarif tanlang —</option>
+            {plans.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.name} — {Number(p.price).toLocaleString()} so'm / {p.durationDays} kun
+              </option>
+            ))}
+          </Select>
           <div className="relative flex items-center">
             <div className="flex-1 border-t border-gray-200" />
             <span className="mx-3 text-xs text-gray-400">yoki</span>

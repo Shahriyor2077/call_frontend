@@ -3,7 +3,7 @@ import "./globals.css";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 
 export const metadata: Metadata = {
-  title: "EduCRM",
+  title: "SmartHub",
   description: "O'quv markazlari uchun CRM tizimi",
 };
 

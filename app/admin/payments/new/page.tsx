@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import { ArrowLeft } from 'lucide-react';
 import { useToast } from '@/components/ui/ToastProvider';
 
@@ -18,6 +19,7 @@ export default function NewPaymentPage() {
     const [form, setForm] = useState({
         studentId: '',
         amount: '',
+        discountAmount: '',
         method: 'CASH',
         notes: '',
         type: 'MONTHLY',
@@ -30,8 +32,8 @@ export default function NewPaymentPage() {
             try {
                 const { data } = await api.get('/students');
                 setStudents(data);
-            } catch (err) {
-                console.error('Talabalarni yuklashda xato:', err);
+            } catch {
+                toast.error('Talabalar yuklanmadi');
             }
         }
         void loadStudents();
@@ -62,10 +64,13 @@ export default function NewPaymentPage() {
 
         setLoading(true);
         try {
-            await api.post('/payments', { ...form, amount: Number(form.amount) });
-            router.push('/admin/payments');
-        } catch (err) {
-            console.error('To\'lov yaratishda xato:', err);
+            const { data } = await api.post('/payments', {
+                ...form,
+                amount: Number(form.amount),
+                discountAmount: Number(form.discountAmount) || 0,
+            });
+            router.push(`/admin/payments/${data.id}/print`);
+        } catch {
             toast.error('Xatolik yuz berdi');
         } finally {
             setLoading(false);
@@ -141,42 +146,40 @@ export default function NewPaymentPage() {
 
                     <Input
                         label="Miqdor (so'm) *"
-                        type="number"
-                        value={form.amount}
-                        onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
+                        type="text"
+                        value={form.amount ? Number(form.amount).toLocaleString('en-US') : ''}
+                        onChange={e => setForm(p => ({ ...p, amount: e.target.value.replace(/\D/g, '') }))}
                         placeholder="0"
                         required
                     />
 
-                    <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1.5">
-                            To'lov usuli
-                        </label>
-                        <select
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            value={form.method}
-                            onChange={e => setForm(p => ({ ...p, method: e.target.value }))}
-                        >
-                            <option value="CASH">Naqd</option>
-                            <option value="PAYME">Payme</option>
-                            <option value="CLICK">Click</option>
-                            <option value="BANK_TRANSFER">Bank o'tkazmasi</option>
-                        </select>
-                    </div>
+                    <Input
+                        label="Chegirma (so'm)"
+                        type="text"
+                        value={form.discountAmount ? Number(form.discountAmount).toLocaleString('en-US') : ''}
+                        onChange={e => setForm(p => ({ ...p, discountAmount: e.target.value.replace(/\D/g, '') }))}
+                        placeholder="0"
+                    />
 
-                    <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1.5">
-                            To'lov turi
-                        </label>
-                        <select
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            value={form.type}
-                            onChange={e => setForm(p => ({ ...p, type: e.target.value }))}
-                        >
-                            <option value="MONTHLY">Oylik to'lov</option>
-                            <option value="ADVANCE">Avans</option>
-                        </select>
-                    </div>
+                    <Select
+                        label="To'lov usuli"
+                        value={form.method}
+                        onChange={e => setForm(p => ({ ...p, method: e.target.value }))}
+                    >
+                        <option value="CASH">Naqd</option>
+                        <option value="PAYME">Payme</option>
+                        <option value="CLICK">Click</option>
+                        <option value="BANK_TRANSFER">Bank o'tkazmasi</option>
+                    </Select>
+
+                    <Select
+                        label="To'lov turi"
+                        value={form.type}
+                        onChange={e => setForm(p => ({ ...p, type: e.target.value }))}
+                    >
+                        <option value="MONTHLY">Oylik to'lov</option>
+                        <option value="ADVANCE">Avans</option>
+                    </Select>
 
                     <div>
                         <label className="text-sm font-medium text-gray-700 block mb-1.5">

@@ -37,8 +37,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-blue-900 p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
-          <h1 className="text-4xl font-bold text-white tracking-tight">EduCRM</h1>
-          <p className="text-blue-300 mt-2 text-sm">Rolni tanlang</p>
+          <h1 className="text-4xl font-bold text-white tracking-tight mb-5">SmartHub</h1>
+          <p className="text-blue-300 text-sm">Rolni tanlang</p>
         </div>
 
         <div className="flex flex-col gap-3">

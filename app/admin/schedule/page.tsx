@@ -26,6 +26,8 @@ const COLORS = [
   'bg-cyan-100 text-cyan-700 border-cyan-200',
 ];
 
+const MONTH_SHORT = ['yan', 'fev', 'mar', 'apr', 'may', 'iyn', 'iyl', 'avg', 'sen', 'okt', 'noy', 'dek'];
+
 export default function SchedulePage() {
   const [groups, setGroups] = useState<any[]>([]);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -47,11 +49,25 @@ export default function SchedulePage() {
   groups.forEach((g, i) => { colorMap[g.id] = COLORS[i % COLORS.length]; });
 
   const now = new Date();
+  const todayNormalized = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
   const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - now.getDay() + 1 + weekOffset * 7);
+  weekStart.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1) + weekOffset * 7);
+  weekStart.setHours(0, 0, 0, 0);
+
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
-  const MONTHS_SHORT = ['yan', 'fev', 'mar', 'apr', 'may', 'iyn', 'iyl', 'avg', 'sen', 'okt', 'noy', 'dek'];
+
+  function getDayDate(idx: number) {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + idx);
+    return d;
+  }
+
+  function isToday(idx: number) {
+    const d = getDayDate(idx);
+    return d.getTime() === todayNormalized.getTime();
+  }
 
   const activeHours = HOURS.filter(hour =>
     DAYS.some(d => groupsForDayHour(d.key, hour).length > 0)
@@ -63,6 +79,8 @@ export default function SchedulePage() {
     return idx >= firstIdx && idx <= lastIdx;
   }) : HOURS.slice(1, 9);
 
+  const weekLabel = `${weekStart.getDate()} ${MONTH_SHORT[weekStart.getMonth()]} — ${weekEnd.getDate()} ${MONTH_SHORT[weekEnd.getMonth()]} ${weekEnd.getFullYear()}`;
+
   return (
     <div>
       <div className="flex items-start justify-between mb-6">
@@ -71,41 +89,70 @@ export default function SchedulePage() {
           <p className="text-sm text-gray-400 mt-0.5">Haftalik dars jadvali — barcha guruhlar.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500"><ChevronLeft size={16} /></button>
-          <button className="px-4 py-1.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Bu hafta</button>
-          <button className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500"><ChevronRight size={16} /></button>
+          <button
+            onClick={() => setWeekOffset(v => v - 1)}
+            className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500 cursor-pointer"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            onClick={() => setWeekOffset(0)}
+            className="px-4 py-1.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer min-w-40 text-center"
+          >
+            {weekOffset === 0 ? 'Bu hafta' : weekLabel}
+          </button>
+          <button
+            onClick={() => setWeekOffset(v => v + 1)}
+            className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500 cursor-pointer"
+          >
+            <ChevronRight size={16} />
+          </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border overflow-hidden">
+      <div className="bg-white rounded-xl border overflow-hidden shadow-sm">
         {/* Header row */}
-        <div className="grid border-b" style={{ gridTemplateColumns: '64px repeat(7, 1fr)' }}>
+        <div className="grid border-b bg-gray-50" style={{ gridTemplateColumns: '64px repeat(7, 1fr)' }}>
           <div className="border-r" />
-          {DAYS.map(d => (
-            <div key={d.key} className="py-3 text-center text-sm font-semibold text-gray-500 border-r last:border-r-0">
-              {d.label}
-            </div>
-          ))}
+          {DAYS.map((d, idx) => {
+            const date = getDayDate(idx);
+            const today = isToday(idx);
+            return (
+              <div
+                key={d.key}
+                className={`py-3 text-center border-r last:border-r-0 ${today ? 'bg-indigo-50' : ''}`}
+              >
+                <p className={`text-xs font-semibold uppercase tracking-wide ${today ? 'text-indigo-600' : 'text-gray-400'}`}>
+                  {d.label}
+                </p>
+                <p className={`text-sm font-bold mt-0.5 ${today ? 'text-indigo-700' : 'text-gray-600'}`}>
+                  {date.getDate()}
+                </p>
+                {today && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mx-auto mt-1" />}
+              </div>
+            );
+          })}
         </div>
 
         {/* Time rows */}
         {displayHours.map(hour => (
-          <div key={hour} className="grid border-b last:border-b-0" style={{ gridTemplateColumns: '64px repeat(7, 1fr)', minHeight: '60px' }}>
-            <div className="border-r flex items-start justify-end pr-3 pt-2">
-              <span className="text-xs text-gray-400">{hour}</span>
+          <div key={hour} className="grid border-b last:border-b-0" style={{ gridTemplateColumns: '64px repeat(7, 1fr)', minHeight: '64px' }}>
+            <div className="border-r flex items-start justify-end pr-3 pt-2.5">
+              <span className="text-xs text-gray-400 font-medium">{hour}</span>
             </div>
-            {DAYS.map(d => {
+            {DAYS.map((d, idx) => {
               const dayGroups = groupsForDayHour(d.key, hour);
+              const today = isToday(idx);
               return (
-                <div key={d.key} className="border-r last:border-r-0 p-1.5 space-y-1">
+                <div key={d.key} className={`border-r last:border-r-0 p-1.5 space-y-1 ${today ? 'bg-indigo-50/40' : ''}`}>
                   {dayGroups.map(g => (
                     <div
                       key={g.id}
-                      className={`rounded-lg px-2 py-1.5 text-xs font-medium border ${colorMap[g.id]}`}
+                      className={`rounded-lg px-2 py-1.5 text-xs font-medium border ${colorMap[g.id]} shadow-sm`}
                       title={`${g.name} · ${g.startTime}–${g.endTime}`}
                     >
-                      <div className="truncate">{g.name}</div>
-                      <div className="opacity-70 text-[10px]">{g.startTime}–{g.endTime}</div>
+                      <div className="truncate font-semibold">{g.name}</div>
+                      <div className="opacity-60 text-[10px] mt-0.5">{g.startTime}–{g.endTime}</div>
                     </div>
                   ))}
                 </div>
