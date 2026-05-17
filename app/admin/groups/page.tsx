@@ -50,6 +50,8 @@ export default function GroupsPage() {
   const [editing, setEditing] = useState<any>(null);
   const [deleteModal, setDeleteModal] = useState<any>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const [menuGroup, setMenuGroup] = useState<any>(null);
   const [form, setForm] = useState({
     courseId: '', teacherId: '', name: '', type: 'OFFLINE', maxStudents: '',
     price: '', meetLink: '', platform: '', room: '', address: '',
@@ -309,33 +311,25 @@ export default function GroupsPage() {
                     {g.price ? `${Number(g.price).toLocaleString('uz-UZ')} so'm` : <span className="text-gray-300 font-normal">—</span>}
                   </td>
                   <td className="px-5 py-3.5">
-                    <div className="relative inline-block">
-                      <button
-                        onClick={e => { e.stopPropagation(); setMenuOpen(menuOpen === `status_${g.id}` ? null : `status_${g.id}`); }}
-                        className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full cursor-pointer select-none border transition-colors ${STATUS_COLORS[g.status] ?? 'bg-gray-100 text-gray-500'}`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[g.status]}`} />
-                        {STATUS_LABELS[g.status] ?? g.status}
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-50"><path d="m6 9 6 6 6-6"/></svg>
-                      </button>
-                      {menuOpen === `status_${g.id}` && (
-                        <div className="absolute left-0 top-full pt-1 z-20">
-                          <div className="bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 min-w-36">
-                            {Object.entries(STATUS_LABELS).map(([s, label]) => (
-                              <button
-                                key={s}
-                                onClick={() => { void updateStatus(g, s); setMenuOpen(null); }}
-                                className={`w-full text-left px-3.5 py-2 text-xs font-medium flex items-center gap-2.5 transition-colors cursor-pointer ${g.status === s ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}
-                              >
-                                <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[s]}`} />
-                                {label}
-                                {g.status === s && <span className="ml-auto text-indigo-500 font-bold">✓</span>}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        if (menuOpen === `status_${g.id}`) {
+                          setMenuOpen(null);
+                          setMenuGroup(null);
+                        } else {
+                          const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                          setMenuPos({ top: rect.bottom + 4, left: rect.left });
+                          setMenuGroup(g);
+                          setMenuOpen(`status_${g.id}`);
+                        }
+                      }}
+                      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full cursor-pointer select-none border transition-colors ${STATUS_COLORS[g.status] ?? 'bg-gray-100 text-gray-500'}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[g.status]}`} />
+                      {STATUS_LABELS[g.status] ?? g.status}
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-50"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-1.5">
@@ -454,7 +448,27 @@ export default function GroupsPage() {
         </div>
       </Modal>
 
-      {menuOpen && <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(null)} />}
+      {menuOpen && menuGroup && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => { setMenuOpen(null); setMenuGroup(null); }} />
+          <div
+            style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
+            className="z-50 bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 min-w-36"
+          >
+            {Object.entries(STATUS_LABELS).map(([s, label]) => (
+              <button
+                key={s}
+                onClick={() => { void updateStatus(menuGroup, s); setMenuGroup(null); }}
+                className={`w-full text-left px-3.5 py-2 text-xs font-medium flex items-center gap-2.5 transition-colors cursor-pointer ${menuGroup.status === s ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}
+              >
+                <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[s]}`} />
+                {label}
+                {menuGroup.status === s && <span className="ml-auto text-indigo-500 font-bold">✓</span>}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

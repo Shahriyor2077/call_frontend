@@ -17,12 +17,12 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Skip interceptor for login requests
     if (originalRequest.url?.includes('/auth/login')) {
       return Promise.reject(error);
     }
 
-    if (error.response?.status === 401 && typeof window !== 'undefined') {
+    if (error.response?.status === 401 && !originalRequest._retry && typeof window !== 'undefined') {
+      originalRequest._retry = true;
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
         try {
@@ -32,8 +32,8 @@ api.interceptors.response.use(
           );
           localStorage.setItem('accessToken', data.accessToken);
           localStorage.setItem('refreshToken', data.refreshToken);
-          error.config.headers.Authorization = `Bearer ${data.accessToken}`;
-          return api(error.config);
+          originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
+          return api(originalRequest);
         } catch {
           localStorage.clear();
           window.location.href = '/login';

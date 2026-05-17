@@ -226,11 +226,14 @@ export default function AdminPaymentsPage() {
 
   async function handleEdit() {
     if (!editModal) return;
+    const totalAmt = Number(editForm.amount) || 0;
+    const discount = Number(editForm.discountAmount) || 0;
+    if (discount > totalAmt) { toast.error("Chegirma to'lov miqdoridan katta bo'lishi mumkin emas"); return; }
     setActionLoading(true);
     try {
       await api.put(`/payments/${editModal.id}`, {
-        amount: Number(editForm.amount),
-        discountAmount: Number(editForm.discountAmount) || 0,
+        totalAmount: totalAmt,
+        discountAmount: discount,
         notes: editForm.notes,
       });
       setEditModal(null);
@@ -487,8 +490,10 @@ export default function AdminPaymentsPage() {
                     </span>
                     {p.isRefunded && <span className="ml-1 text-[10px] text-red-400 font-medium">qaytarilgan</span>}
                   </td>
-                  <td className="px-4 py-3.5 text-sm text-amber-600 font-medium">
-                    {fmtAmount(Number(p.discountAmount || 0))} UZS
+                  <td className="px-4 py-3.5 text-sm font-medium">
+                    {Number(p.discountAmount || 0) > 0
+                      ? <span className="text-amber-600">{fmtAmount(Number(p.discountAmount))} UZS</span>
+                      : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-4 py-3.5">
                     <p className="text-sm font-semibold text-gray-800">{fmtDateTime(p.paidAt)}</p>
@@ -513,7 +518,7 @@ export default function AdminPaymentsPage() {
                         <MessageSquare size={15} />
                       </button>
                       <button
-                        onClick={() => { setEditModal(p); setEditForm({ amount: String(p.amount), discountAmount: String(p.discountAmount || 0), notes: p.notes || '' }); }}
+                        onClick={() => { setEditModal(p); setEditForm({ amount: String(Number(p.amount) + Number(p.discountAmount || 0)), discountAmount: String(p.discountAmount || 0), notes: p.notes || '' }); }}
                         title="Tahrirlash"
                         className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
                       >
@@ -618,7 +623,7 @@ export default function AdminPaymentsPage() {
       {/* Edit Modal */}
       <Modal open={!!editModal} onClose={() => setEditModal(null)} title="To'lovni tahrirlash" size="sm">
         <div className="space-y-4">
-          <Input label="Summa (UZS) *" type="text" value={editForm.amount ? Number(editForm.amount).toLocaleString('en-US') : ''}
+          <Input label="Asl summa (qarz, UZS) *" type="text" value={editForm.amount ? Number(editForm.amount).toLocaleString('en-US') : ''}
             onChange={e => setEditForm(p => ({ ...p, amount: e.target.value.replace(/\D/g, '') }))} />
           <Input label="Chegirma (UZS)" type="text" value={editForm.discountAmount ? Number(editForm.discountAmount).toLocaleString('en-US') : ''}
             onChange={e => setEditForm(p => ({ ...p, discountAmount: e.target.value.replace(/\D/g, '') }))} />

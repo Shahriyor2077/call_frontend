@@ -149,7 +149,7 @@ export default function OperatorStudentsPage() {
     if (!selectedStudent || !enrollForm.groupId) return;
     setLoading(true);
     try {
-      await api.post('/groups/enroll', { studentId: selectedStudent.id, groupId: enrollForm.groupId });
+      await api.post(`/groups/${enrollForm.groupId}/enroll`, { studentId: selectedStudent.id });
       setModal(null); setEnrollForm({ groupId: '' }); void load();
     } catch (err: any) {
       const msg = err?.response?.data?.message;

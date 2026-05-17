@@ -239,7 +239,7 @@ export default function GroupDetailPage() {
     try {
       const { data } = await api.post('/payments', {
         studentId: paymentModal.id,
-        amount: Number(paymentForm.amount),
+        totalAmount: Number(paymentForm.amount),
         discountAmount: Number(paymentForm.discountAmount) || 0,
         method: paymentForm.method,
         notes: paymentForm.notes,

@@ -65,9 +65,12 @@ export default function NewPaymentPage() {
         setLoading(true);
         try {
             const { data } = await api.post('/payments', {
-                ...form,
-                amount: Number(form.amount),
+                studentId: form.studentId,
+                totalAmount: Number(form.amount),
                 discountAmount: Number(form.discountAmount) || 0,
+                method: form.method,
+                notes: form.notes,
+                type: form.type,
             });
             router.push(`/admin/payments/${data.id}/print`);
         } catch {

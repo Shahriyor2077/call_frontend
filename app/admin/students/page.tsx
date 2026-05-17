@@ -184,7 +184,7 @@ export default function AdminStudentsPage() {
     if (!selectedStudent || !enrollForm.groupId) return;
     setLoading(true);
     try {
-      await api.post('/groups/enroll', { studentId: selectedStudent.id, groupId: enrollForm.groupId });
+      await api.post(`/groups/${enrollForm.groupId}/enroll`, { studentId: selectedStudent.id });
       setModal(null); setEnrollForm({ groupId: '' }); void load();
     } catch (err: any) {
       const msg = err?.response?.data?.message;
@@ -241,7 +241,8 @@ export default function AdminStudentsPage() {
     setPayLoading(true);
     try {
       const { data } = await api.post('/payments', {
-        studentId: payModal.id, amount: Number(payForm.amount),
+        studentId: payModal.id,
+        totalAmount: Number(payForm.amount),
         discountAmount: Number(payForm.discountAmount) || 0,
         method: payForm.method, notes: payForm.notes, type: payForm.type,
       });

@@ -85,11 +85,15 @@ export default function StudentDetailPage() {
 
   async function submitPayment() {
     if (!payForm.amount) return;
+    const totalAmt = Number(payForm.amount);
+    const discount = Number(payForm.discountAmount) || 0;
+    if (discount > totalAmt) { toast.error("Chegirma to'lov miqdoridan katta bo'lishi mumkin emas"); return; }
     setPayLoading(true);
     try {
       const { data } = await api.post('/payments', {
-        studentId: id, amount: Number(payForm.amount),
-        discountAmount: Number(payForm.discountAmount) || 0,
+        studentId: id,
+        totalAmount: totalAmt,
+        discountAmount: discount,
         method: payForm.method, notes: payForm.notes, type: payForm.type,
       });
       setPayConfirm(false); setPayModal(false);

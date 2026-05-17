@@ -70,12 +70,15 @@ export default function DebtorsReportPage() {
       toast.warning('To\'lov miqdorini kiriting');
       return;
     }
+    const totalAmt = Number(paymentAmount);
+    const discount = Number(paymentDiscount) || 0;
+    if (discount > totalAmt) { toast.warning("Chegirma to'lov miqdoridan katta bo'lishi mumkin emas"); return; }
     setPayLoading(true);
     try {
       const { data } = await api.post('/payments', {
         studentId: paymentStudent.id,
-        amount: Number(paymentAmount),
-        discountAmount: Number(paymentDiscount) || 0,
+        totalAmount: totalAmt,
+        discountAmount: discount,
         type: 'MONTHLY',
         method: 'CASH',
         paidAt: new Date().toISOString(),

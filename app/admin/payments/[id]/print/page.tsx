@@ -39,9 +39,14 @@ export default function PaymentPrintPage() {
   const dt = fmtDateTime(payment.paidAt);
   const [datePart, timePart] = dt.split(' ');
 
+  const paidAmount = Number(payment.amount);
+  const discountAmount = Number(payment.discountAmount || 0);
+  const totalAmount = paidAmount + discountAmount;
+  const hasDiscount = discountAmount > 0;
+
   return (
     <div>
-      {/* Screen toolbar — hidden when printing */}
+      {/* Screen toolbar */}
       <div className="flex items-center justify-between mb-6 print:hidden">
         <button
           onClick={() => router.back()}
@@ -62,7 +67,7 @@ export default function PaymentPrintPage() {
         {/* Header */}
         <div className="text-center mb-6">
           <p className="text-xs text-gray-400 mb-1">
-            {new Date(payment.paidAt).toLocaleDateString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric' })}
+            {new Date(payment.paidAt).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}
             {' '}
             {timePart}
           </p>
@@ -78,7 +83,6 @@ export default function PaymentPrintPage() {
           )}
         </div>
 
-        {/* Divider */}
         <div className="border-t border-dashed border-gray-300 my-4" />
 
         {/* Date row */}
@@ -90,11 +94,10 @@ export default function PaymentPrintPage() {
         {/* Details */}
         <div className="space-y-3">
           {[
-            ['O\'quvchi',       payment.student?.name ?? '—'],
-            ['To\'lov turi',    TYPE_LABEL[payment.type] ?? payment.type],
-            ['To\'lov shakli',  METHOD_LABEL[payment.method] ?? payment.method],
-            ["To'lovni olgan",  payment.operator?.name ?? '—'],
-            ['Chegirma',        `${Number(payment.discountAmount || 0).toLocaleString()} UZS`],
+            ['O\'quvchi',      payment.student?.name ?? '—'],
+            ['To\'lov turi',   TYPE_LABEL[payment.type] ?? payment.type],
+            ['To\'lov shakli', METHOD_LABEL[payment.method] ?? payment.method],
+            ['To\'lovni olgan', payment.operator?.name ?? '—'],
           ].map(([label, value]) => (
             <div key={label} className="flex justify-between text-sm">
               <span className="text-gray-500">{label}</span>
@@ -102,21 +105,29 @@ export default function PaymentPrintPage() {
             </div>
           ))}
 
+          {/* Discount breakdown */}
+          {hasDiscount && (
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Asl summa (qarz)</span>
+                <span className="font-medium text-gray-800">{totalAmount.toLocaleString()} UZS</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Chegirma</span>
+                <span className="font-medium text-green-600">− {discountAmount.toLocaleString()} UZS</span>
+              </div>
+            </>
+          )}
+
+          {/* Main amount */}
           <div className="border-t border-dashed border-gray-200 pt-3 flex justify-between items-center">
-            <span className="text-sm font-bold text-gray-700">To&apos;lov miqdori</span>
+            <span className="text-sm font-bold text-gray-700">
+              {hasDiscount ? 'Kassaga tushdi' : 'To\'lov miqdori'}
+            </span>
             <span className="text-xl font-black text-gray-900">
-              {Number(payment.amount).toLocaleString()} UZS
+              {paidAmount.toLocaleString()} UZS
             </span>
           </div>
-
-          {Number(payment.discountAmount || 0) > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Hisobga olingan jami</span>
-              <span className="font-bold text-gray-900">
-                {(Number(payment.amount) + Number(payment.discountAmount || 0)).toLocaleString()} UZS
-              </span>
-            </div>
-          )}
 
           {payment.notes && (
             <div className="flex justify-between text-sm">

@@ -50,13 +50,19 @@ export default function StudentPaymentPage() {
   const price = Number(student.enrollments?.find((e: any) => e.isActive)?.group?.price || 0);
   const balance = price > 0 ? totalPaidMonth - price : 0;
 
+  const totalAmt = Number(amount) || 0;
+  const discount = Number(discountAmount) || 0;
+  const paidAmt = totalAmt - discount;
+
   async function submit() {
-    if (!amount || Number(amount) <= 0) { toast.warning("To'lov miqdorini kiriting"); return; }
+    if (!amount || totalAmt <= 0) { toast.warning("To'lov miqdorini kiriting"); return; }
+    if (discount > totalAmt) { toast.warning("Chegirma to'lov miqdoridan katta bo'lishi mumkin emas"); return; }
     setSubmitting(true);
     try {
       const { data } = await api.post('/payments', {
-        studentId: id, amount: Number(amount),
-        discountAmount: Number(discountAmount) || 0,
+        studentId: id,
+        totalAmount: totalAmt,
+        discountAmount: discount,
         method, notes, type,
       });
       router.push(`/admin/payments/${data.id}/print`);
@@ -96,9 +102,9 @@ export default function StudentPaymentPage() {
             </div>
           </div>
 
-          {/* To'lov miqdori */}
+          {/* Asl summa */}
           <div>
-            <label className="text-sm font-semibold text-gray-700 block mb-2">To&apos;lov miqdori</label>
+            <label className="text-sm font-semibold text-gray-700 block mb-2">Asl summa (qarz)</label>
             <input
               type="text"
               value={amount ? Number(amount).toLocaleString('en-US') : ''}
@@ -106,7 +112,6 @@ export default function StudentPaymentPage() {
               placeholder="0"
               className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 text-gray-800"
             />
-            {/* Quick amounts */}
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               {QUICK_AMOUNTS.map(q => (
                 <button
@@ -131,6 +136,7 @@ export default function StudentPaymentPage() {
             </div>
           </div>
 
+          {/* Chegirma */}
           <div>
             <label className="text-sm font-semibold text-gray-700 block mb-2">Chegirma</label>
             <input
@@ -142,7 +148,23 @@ export default function StudentPaymentPage() {
             />
           </div>
 
-          {/* Tur */}
+          {/* Kassaga tushadi preview */}
+          {discount > 0 && totalAmt > 0 && (
+            <div className={`rounded-xl px-4 py-3 flex items-center justify-between border ${
+              paidAmt < 0
+                ? 'bg-red-50 border-red-200'
+                : 'bg-amber-50 border-amber-200'
+            }`}>
+              <span className={`text-sm ${paidAmt < 0 ? 'text-red-700' : 'text-amber-700'}`}>
+                Kassaga tushadi:
+              </span>
+              <span className={`text-lg font-bold ${paidAmt < 0 ? 'text-red-800' : 'text-amber-800'}`}>
+                {paidAmt.toLocaleString()} UZS
+              </span>
+            </div>
+          )}
+
+          {/* To'lov turi */}
           <div>
             <label className="text-sm font-semibold text-gray-700 block mb-2">To&apos;lov turi</label>
             <div className="flex gap-2">

@@ -22,11 +22,13 @@ function fmtAmount(n: number): string {
   return String(n);
 }
 
+type ModalType = 'create' | 'edit' | 'salary' | 'delete' | 'block' | 'unblock' | null;
+
 export default function OperatorsPage() {
   const toast = useToast();
   const [operators, setOperators] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
-  const [modal, setModal] = useState<'create' | 'edit' | 'salary' | 'delete' | null>(null);
+  const [modal, setModal] = useState<ModalType>(null);
   const [selected, setSelected] = useState<any>(null);
   const [form, setForm] = useState({ name: '', phone: '', password: '' });
   const [percentage, setPercentage] = useState('10');
@@ -98,36 +100,61 @@ export default function OperatorsPage() {
     }
   }
 
+  async function blockOp() {
+    if (!selected) return;
+    setLoading(true);
+    try {
+      await api.put(`/users/${selected.id}/block`);
+      setModal(null);
+      toast.success(`${selected.name} bloklandi`);
+      void load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
+    } finally { setLoading(false); }
+  }
+
+  async function unblockOp() {
+    if (!selected) return;
+    setLoading(true);
+    try {
+      await api.put(`/users/${selected.id}/unblock`);
+      setModal(null);
+      toast.success(`${selected.name} faollashtirildi`);
+      void load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
+    } finally { setLoading(false); }
+  }
+
   async function deleteOp() {
     if (!selected) return;
     setLoading(true);
     try {
       await api.delete(`/users/${selected.id}`);
       setModal(null);
+      toast.success(`${selected.name} o'chirildi`);
+      void load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
+    } finally { setLoading(false); }
+  }
+
+  async function updateSalary() {
+    if (!selected) return;
+    setLoading(true);
+    try {
+      await api.put(`/users/${selected.id}/salary-percentage`, {
+        percentage: Number(percentage),
+        fixedAmount: Number(fixedAmount),
+      });
+      setModal(null);
+      toast.success('Maosh sozlamalari saqlandi');
       void load();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
     } finally {
       setLoading(false);
     }
-  }
-
-  async function updateSalary() {
-    if (!selected) return;
-    setLoading(true);
-    await api.put(`/users/${selected.id}/salary-percentage`, {
-      percentage: Number(percentage),
-      fixedAmount: Number(fixedAmount)
-    });
-    setModal(null);
-    void load();
-    setLoading(false);
-  }
-
-  async function toggleBlock(op: any) {
-    await api.put(`/users/${op.id}`, { isActive: !op.isActive });
-    setMenuOpen(null);
-    void load();
   }
 
   function getOpStats(op: any) {
@@ -230,12 +257,14 @@ export default function OperatorsPage() {
           return (
             <div
               key={op.id}
-              className={`bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all group relative ${!op.isActive ? 'opacity-70' : ''}`}
+              className={`bg-white rounded-2xl border p-5 shadow-sm hover:shadow-md transition-all group relative ${
+                !op.isActive ? 'border-amber-100 bg-amber-50/30' : 'border-gray-100 hover:border-indigo-200'
+              }`}
             >
               {/* Card header */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 rounded-xl bg-linear-to-br ${gFrom} ${gTo} flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform shrink-0 text-base font-bold`}>
+                  <div className={`w-12 h-12 rounded-xl bg-linear-to-br ${gFrom} ${gTo} flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform shrink-0 text-base font-bold ${!op.isActive ? 'opacity-60 grayscale' : ''}`}>
                     {op.name?.charAt(0)?.toUpperCase()}
                   </div>
                   <div className="min-w-0">
@@ -256,19 +285,29 @@ export default function OperatorsPage() {
                       <MoreVertical size={14} />
                     </button>
                     {menuOpen === op.id && (
-                      <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-20 w-40">
-                        <button onClick={() => openEdit(op)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700 cursor-pointer">Tahrirlash</button>
+                      <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-20 w-44">
+                        <button onClick={() => openEdit(op)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700 cursor-pointer">
+                          Tahrirlash
+                        </button>
                         <button
                           onClick={() => { setSelected(op); setPercentage(String(op.salarySetting?.percentage ?? 10)); setFixedAmount(String(op.salarySetting?.fixedAmount ?? 0)); setModal('salary'); setMenuOpen(null); }}
                           className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700 cursor-pointer"
                         >
                           Maosh sozlamalari
                         </button>
-                        <button onClick={() => void toggleBlock(op)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700 cursor-pointer">
-                          {op.isActive ? 'Bloklash' : 'Faollashtirish'}
-                        </button>
+                        {op.isActive ? (
+                          <button onClick={() => { setSelected(op); setModal('block'); setMenuOpen(null); }} className="w-full text-left px-4 py-2 text-sm hover:bg-amber-50 text-amber-600 cursor-pointer">
+                            Bloklash
+                          </button>
+                        ) : (
+                          <button onClick={() => { setSelected(op); setModal('unblock'); setMenuOpen(null); }} className="w-full text-left px-4 py-2 text-sm hover:bg-green-50 text-green-600 cursor-pointer">
+                            Blokdan chiqarish
+                          </button>
+                        )}
                         <div className="border-t mx-2 my-1" />
-                        <button onClick={() => { setSelected(op); setModal('delete'); setMenuOpen(null); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer">O&apos;chirish</button>
+                        <button onClick={() => { setSelected(op); setModal('delete'); setMenuOpen(null); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer">
+                          O&apos;chirish
+                        </button>
                       </div>
                     )}
                   </div>
@@ -318,25 +357,22 @@ export default function OperatorsPage() {
 
               {/* Action buttons */}
               <div className="flex items-center gap-1.5">
-                {[
-                  { label: 'Tahrirlash', icon: <Pencil size={14} />, cls: 'bg-amber-500 hover:bg-amber-600', onClick: () => openEdit(op) },
-                  { label: 'Maosh', icon: <DollarSign size={14} />, cls: 'bg-indigo-500 hover:bg-indigo-600', onClick: () => { setSelected(op); setPercentage(String(op.salarySetting?.percentage ?? 10)); setFixedAmount(String(op.salarySetting?.fixedAmount ?? 0)); setModal('salary'); } },
-                  { label: op.isActive ? 'Bloklash' : 'Yoqish', icon: op.isActive ? <Ban size={14} /> : <CheckCircle2 size={14} />, cls: op.isActive ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600', onClick: () => void toggleBlock(op) },
-                  { label: "O'chirish", icon: <Trash2 size={14} />, cls: 'bg-red-500 hover:bg-red-600', onClick: () => { setSelected(op); setModal('delete'); } },
-                ].map(btn => (
-                  <div key={btn.label} className="relative group/tip flex-1">
-                    <button
-                      onClick={btn.onClick}
-                      className={`w-full h-9 flex items-center justify-center rounded-xl text-white transition-colors shadow-sm cursor-pointer ${btn.cls}`}
-                    >
-                      {btn.icon}
-                    </button>
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
-                      {btn.label}
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
-                    </div>
-                  </div>
-                ))}
+                {/* Tahrirlash */}
+                <ActionBtn label="Tahrirlash" icon={<Pencil size={14} />} cls="bg-amber-500 hover:bg-amber-600" onClick={() => openEdit(op)} />
+                {/* Maosh */}
+                <ActionBtn label="Maosh" icon={<DollarSign size={14} />} cls="bg-indigo-500 hover:bg-indigo-600"
+                  onClick={() => { setSelected(op); setPercentage(String(op.salarySetting?.percentage ?? 10)); setFixedAmount(String(op.salarySetting?.fixedAmount ?? 0)); setModal('salary'); }} />
+                {/* Bloklash / Faollashtirish */}
+                {op.isActive ? (
+                  <ActionBtn label="Bloklash" icon={<Ban size={14} />} cls="bg-rose-500 hover:bg-rose-600"
+                    onClick={() => { setSelected(op); setModal('block'); }} />
+                ) : (
+                  <ActionBtn label="Faollashtirish" icon={<CheckCircle2 size={14} />} cls="bg-emerald-500 hover:bg-emerald-600"
+                    onClick={() => { setSelected(op); setModal('unblock'); }} />
+                )}
+                {/* O'chirish */}
+                <ActionBtn label="O'chirish" icon={<Trash2 size={14} />} cls="bg-red-600 hover:bg-red-700"
+                  onClick={() => { setSelected(op); setModal('delete'); }} />
               </div>
             </div>
           );
@@ -349,6 +385,7 @@ export default function OperatorsPage() {
         )}
       </div>
 
+      {/* Create modal */}
       <Modal open={modal === 'create'} onClose={() => setModal(null)} title="Yangi operator">
         <div className="space-y-4">
           <Input label="Ism *" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
@@ -361,6 +398,7 @@ export default function OperatorsPage() {
         </div>
       </Modal>
 
+      {/* Edit modal */}
       <Modal open={modal === 'edit'} onClose={() => setModal(null)} title={`Operatorni tahrirlash — ${selected?.name}`}>
         <div className="space-y-4">
           <Input label="Ism *" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
@@ -373,23 +411,76 @@ export default function OperatorsPage() {
         </div>
       </Modal>
 
-      <Modal open={modal === 'delete'} onClose={() => setModal(null)} title="Operatorni o'chirish">
+      {/* Block modal */}
+      <Modal open={modal === 'block'} onClose={() => setModal(null)} title="Operatorni bloklash" size="sm">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            <span className="font-semibold text-gray-900">{selected?.name}</span> operatorini o&apos;chirishni xohlaysizmi?
+            <span className="font-semibold text-gray-900">{selected?.name}</span> operatorini bloklashni xohlaysizmi?
           </p>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
             <p className="text-sm text-amber-800">
-              ⚠️ Bu amal qaytarilmaydi. Operator va unga tegishli barcha ma&apos;lumotlar o&apos;chiriladi.
+              ⚠️ Bloklangan operator tizimga kira olmaydi. Istalgan vaqt blokdan chiqarish mumkin.
             </p>
           </div>
-          <div className="flex gap-3 pt-2">
-            <Button variant="danger" onClick={() => void deleteOp()} loading={loading} className="flex-1">O&apos;chirish</Button>
+          <div className="flex gap-3 pt-1">
+            <Button
+              onClick={() => void blockOp()}
+              loading={loading}
+              className="flex-1 bg-amber-500 hover:bg-amber-600"
+            >
+              <Ban size={15} className="mr-1.5" /> Bloklash
+            </Button>
             <Button variant="secondary" onClick={() => setModal(null)} className="flex-1">Bekor</Button>
           </div>
         </div>
       </Modal>
 
+      {/* Unblock modal */}
+      <Modal open={modal === 'unblock'} onClose={() => setModal(null)} title="Operatorni faollashtirish" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            <span className="font-semibold text-gray-900">{selected?.name}</span> operatorini blokdan chiqarishni xohlaysizmi?
+          </p>
+          <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+            <p className="text-sm text-green-800">
+              ✓ Operator yana tizimga kira oladi va ishlashni davom ettiradi.
+            </p>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <Button
+              onClick={() => void unblockOp()}
+              loading={loading}
+              className="flex-1 bg-emerald-500 hover:bg-emerald-600"
+            >
+              <CheckCircle2 size={15} className="mr-1.5" /> Faollashtirish
+            </Button>
+            <Button variant="secondary" onClick={() => setModal(null)} className="flex-1">Bekor</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete modal */}
+      <Modal open={modal === 'delete'} onClose={() => setModal(null)} title="Operatorni o'chirish" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            <span className="font-semibold text-gray-900">{selected?.name}</span> operatorini o&apos;chirishni xohlaysizmi?
+          </p>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+            <p className="text-sm text-red-800">
+              ⚠️ Bu amal qaytarilmaydi. Operator tizimdan butunlay o&apos;chiriladi.
+              Faqat bloklash kerak bo&apos;lsa — o&apos;chirish o&apos;rniga &ldquo;Bloklash&rdquo; tugmasini ishlating.
+            </p>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <Button variant="danger" onClick={() => void deleteOp()} loading={loading} className="flex-1">
+              <Trash2 size={15} className="mr-1.5" /> O&apos;chirish
+            </Button>
+            <Button variant="secondary" onClick={() => setModal(null)} className="flex-1">Bekor</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Salary modal */}
       <Modal open={modal === 'salary'} onClose={() => setModal(null)} title={`Maosh sozlamalari — ${selected?.name}`}>
         <div className="space-y-5">
           <div>
@@ -410,6 +501,23 @@ export default function OperatorsPage() {
       </Modal>
 
       {menuOpen && <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(null)} />}
+    </div>
+  );
+}
+
+function ActionBtn({ label, icon, cls, onClick }: { label: string; icon: React.ReactNode; cls: string; onClick: () => void }) {
+  return (
+    <div className="relative group/tip flex-1">
+      <button
+        onClick={onClick}
+        className={`w-full h-9 flex items-center justify-center rounded-xl text-white transition-colors shadow-sm cursor-pointer ${cls}`}
+      >
+        {icon}
+      </button>
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+        {label}
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+      </div>
     </div>
   );
 }
