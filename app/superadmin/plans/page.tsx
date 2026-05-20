@@ -7,8 +7,10 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import { Plan } from '@/types';
 import { Check, Plus } from 'lucide-react';
+import { useToast } from '@/components/ui/ToastProvider';
 
 export default function PlansPage() {
+  const toast = useToast();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Plan | null>(null);
@@ -16,8 +18,12 @@ export default function PlansPage() {
   const [loading, setLoading] = useState(false);
 
   async function load() {
-    const { data } = await api.get('/plans');
-    setPlans(data);
+    try {
+      const { data } = await api.get('/plans');
+      setPlans(data);
+    } catch {
+      toast.error('Tariflarni yuklashda xatolik');
+    }
   }
   useEffect(() => { void load(); }, []);
 
@@ -34,18 +40,32 @@ export default function PlansPage() {
   }
 
   async function save() {
+    if (!form.name.trim()) { toast.warning('Tarif nomini kiriting'); return; }
+    if (!form.price || Number(form.price) <= 0) { toast.warning('Narxni kiriting'); return; }
+    if (!form.operatorLimit || Number(form.operatorLimit) <= 0) { toast.warning('Operator limitini kiriting'); return; }
+    if (!form.durationDays || Number(form.durationDays) <= 0) { toast.warning('Davomiylikni kiriting'); return; }
     setLoading(true);
-    const data = { name: form.name, price: Number(form.price), operatorLimit: Number(form.operatorLimit), durationDays: Number(form.durationDays) };
-    if (editing) await api.put(`/plans/${editing.id}`, data);
-    else await api.post('/plans', data);
-    setModal(false);
-    await load();
-    setLoading(false);
+    try {
+      const data = { name: form.name, price: Number(form.price), operatorLimit: Number(form.operatorLimit), durationDays: Number(form.durationDays) };
+      if (editing) await api.put(`/plans/${editing.id}`, data);
+      else await api.post('/plans', data);
+      toast.success(editing ? 'Tarif yangilandi' : 'Yangi tarif yaratildi');
+      setModal(false);
+      await load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function toggle(p: Plan) {
-    await api.put(`/plans/${p.id}`, { isActive: !p.isActive });
-    await load();
+    try {
+      await api.put(`/plans/${p.id}`, { isActive: !p.isActive });
+      await load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
+    }
   }
 
   const CARD_STYLES = [
@@ -95,7 +115,7 @@ export default function PlansPage() {
                   <span className="text-3xl font-extrabold text-gray-900">
                     {Number(plan.price).toLocaleString()}
                   </span>
-                  <span className="text-sm text-gray-400 ml-1">so'm/oy</span>
+                  <span className="text-sm text-gray-400 ml-1">so'm / {plan.durationDays} kun</span>
                 </div>
               </div>
 

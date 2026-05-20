@@ -12,12 +12,16 @@ export default function SuperadminDashboard() {
 
   useEffect(() => {
     async function load() {
-      const [statsRes, subsRes] = await Promise.all([
-        api.get('/centers/stats'),
-        api.get('/subscriptions'),
-      ]);
-      setStats(statsRes.data);
-      setSubs(subsRes.data);
+      try {
+        const [statsRes, subsRes] = await Promise.all([
+          api.get('/centers/stats'),
+          api.get('/subscriptions'),
+        ]);
+        setStats(statsRes.data);
+        setSubs(subsRes.data);
+      } catch {
+        /* server xatosi — foydalanuvchi refresh qilishi mumkin */
+      }
     }
     void load();
   }, []);

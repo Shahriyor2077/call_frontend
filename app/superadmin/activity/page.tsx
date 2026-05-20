@@ -11,9 +11,13 @@ export default function ActivityPage() {
 
   useEffect(() => {
     async function load() {
-      const [u, c] = await Promise.all([api.get('/users'), api.get('/centers')]);
-      setUsers(u.data);
-      setCenters(c.data);
+      try {
+        const [u, c] = await Promise.all([api.get('/users'), api.get('/centers')]);
+        setUsers(u.data);
+        setCenters(c.data);
+      } catch {
+        /* silent */
+      }
     }
     void load();
   }, []);

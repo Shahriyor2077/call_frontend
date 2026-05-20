@@ -8,6 +8,7 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Badge from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/ToastProvider';
+import { Search } from 'lucide-react';
 
 export default function SuperadminUsersPage() {
   const toast = useToast();
@@ -18,11 +19,16 @@ export default function SuperadminUsersPage() {
   const [form, setForm] = useState({ name: '', phone: '', password: '', centerId: '' });
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'ALL' | 'ADMIN' | 'OPERATOR'>('ALL');
+  const [search, setSearch] = useState('');
 
   async function load() {
-    const [u, c] = await Promise.all([api.get('/users'), api.get('/centers')]);
-    setUsers(u.data);
-    setCenters(c.data);
+    try {
+      const [u, c] = await Promise.all([api.get('/users'), api.get('/centers')]);
+      setUsers(u.data);
+      setCenters(c.data);
+    } catch {
+      toast.error('Ma\'lumotlarni yuklashda xatolik');
+    }
   }
   useEffect(() => { void load(); }, []);
 
@@ -89,14 +95,22 @@ export default function SuperadminUsersPage() {
   }
 
   async function toggleBlock(u: any) {
-    await api.put(`/users/${u.id}`, { isActive: !u.isActive });
-    await load();
+    try {
+      await api.put(`/users/${u.id}`, { isActive: !u.isActive });
+      await load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
+    }
   }
 
   const filteredUsers = users.filter(u => {
     if (u.role === 'SUPERADMIN') return false;
-    if (activeTab === 'ALL') return true;
-    return u.role === activeTab;
+    if (activeTab !== 'ALL' && u.role !== activeTab) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return u.name.toLowerCase().includes(q) || u.phone.includes(q) || (u.center?.name ?? '').toLowerCase().includes(q);
+    }
+    return true;
   });
 
   const counts = {
@@ -141,6 +155,17 @@ export default function SuperadminUsersPage() {
         >
           Operatorlar ({counts.OPERATOR})
         </button>
+      </div>
+
+      {/* Search */}
+      <div className="relative w-72">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Ism, telefon yoki markaz..."
+          className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white"
+        />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">

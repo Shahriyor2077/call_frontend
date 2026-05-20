@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/auth.store';
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, Calendar,
   Target, Wallet, UserCog, School, DollarSign, Settings,
-  LogOut, ChevronLeft, ChevronRight,
+  LogOut, ChevronLeft, ChevronRight, Activity,
 } from 'lucide-react';
 import Avatar from '@/components/ui/Avatar';
 import { useState, useEffect } from 'react';
@@ -88,6 +88,8 @@ const superadminSections: NavSection[] = [
     title: 'TIZIM',
     items: [
       { href: '/superadmin/users', label: 'Foydalanuvchilar', icon: <UserCog size={16} /> },
+      { href: '/superadmin/activity', label: 'Faollik nazorati', icon: <Activity size={16} /> },
+      { href: '/superadmin/settings', label: 'Sozlamalar', icon: <Settings size={16} /> },
     ],
   },
 ];

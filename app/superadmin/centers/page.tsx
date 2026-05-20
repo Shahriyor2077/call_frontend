@@ -9,6 +9,7 @@ import Select from '@/components/ui/Select';
 import Badge from '@/components/ui/Badge';
 import Avatar from '@/components/ui/Avatar';
 import { Center } from '@/types';
+import Link from 'next/link';
 import { Search, Plus, Copy, Check, Edit2, Trash2, CreditCard, Lock, Unlock } from 'lucide-react';
 import { useToast } from '@/components/ui/ToastProvider';
 
@@ -26,9 +27,13 @@ export default function CentersPage() {
   const [search, setSearch] = useState('');
 
   async function load() {
-    const [c, p] = await Promise.all([api.get('/centers'), api.get('/plans')]);
-    setCenters(c.data);
-    setPlans(p.data);
+    try {
+      const [c, p] = await Promise.all([api.get('/centers'), api.get('/plans')]);
+      setCenters(c.data);
+      setPlans(p.data);
+    } catch {
+      toast.error('Ma\'lumotlarni yuklashda xatolik');
+    }
   }
   useEffect(() => { void load(); }, []);
 
@@ -47,7 +52,7 @@ export default function CentersPage() {
     setForm({
       name: center.name,
       address: center.address || '',
-      phone: '',
+      phone: center.phone || '',
       adminName: '',
       adminPhone: '',
       adminPassword: ''
@@ -80,14 +85,19 @@ export default function CentersPage() {
 
   async function updateCenter() {
     if (!selected) return;
+    if (!form.name.trim()) { toast.warning('Markaz nomini kiriting'); return; }
     setLoading(true);
-    await api.put(`/centers/${selected.id}`, {
-      name: form.name,
-      address: form.address
-    });
-    setModal(null);
-    await load();
-    setLoading(false);
+    try {
+      const payload: any = { name: form.name, address: form.address };
+      if (form.phone.trim()) payload.phone = form.phone;
+      await api.put(`/centers/${selected.id}`, payload);
+      setModal(null);
+      await load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function deleteCenter() {
@@ -112,20 +122,30 @@ export default function CentersPage() {
   }
 
   async function toggleActive(c: Center) {
-    await api.put(`/centers/${c.id}`, { isActive: !c.isActive });
-    await load();
+    try {
+      await api.put(`/centers/${c.id}`, { isActive: !c.isActive });
+      await load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
+    }
   }
 
   async function assignPlan() {
     setLoading(true);
-    if (assignForm.days) {
-      await api.post('/subscriptions/demo', { centerId: selected?.id, days: parseInt(assignForm.days) });
-    } else {
-      await api.post('/subscriptions/assign', { centerId: selected?.id, planId: assignForm.planId });
+    try {
+      if (assignForm.days) {
+        await api.post('/subscriptions/demo', { centerId: selected?.id, days: parseInt(assignForm.days) });
+      } else {
+        await api.post('/subscriptions/assign', { centerId: selected?.id, planId: assignForm.planId });
+      }
+      toast.success('Tarif muvaffaqiyatli belgilandi');
+      setModal(null);
+      await load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Xatolik yuz berdi');
+    } finally {
+      setLoading(false);
     }
-    setModal(null);
-    await load();
-    setLoading(false);
   }
 
 
@@ -171,13 +191,13 @@ export default function CentersPage() {
             {filtered.map(center => (
               <tr key={center.id} className="hover:bg-gray-50/60">
                 <td className="px-5 py-3">
-                  <div className="flex items-center gap-3">
+                  <Link href={`/superadmin/centers/${center.id}`} className="flex items-center gap-3 group w-fit">
                     <Avatar name={center.name} size="sm" />
-                    <span className="font-medium text-gray-900">{center.name}</span>
-                  </div>
+                    <span className="font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">{center.name}</span>
+                  </Link>
                 </td>
                 <td className="px-5 py-3 text-gray-500">{center.address || '—'}</td>
-                <td className="px-5 py-3 text-gray-500">{center.admin?.phone || '—'}</td>
+                <td className="px-5 py-3 text-gray-500">{center.phone || center.admin?.phone || '—'}</td>
                 <td className="px-5 py-3">
                   {center.subscription ? (() => {
                     const daysLeft = Math.ceil(
@@ -355,6 +375,7 @@ export default function CentersPage() {
         <div className="space-y-4">
           <Input label="Markaz nomi *" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
           <Input label="Manzil" value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} />
+          <Input label="Telefon raqami" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="+998901234567" />
 
           <div className="flex gap-3 pt-2">
             <Button onClick={() => void updateCenter()} loading={loading} className="flex-1">Saqlash</Button>

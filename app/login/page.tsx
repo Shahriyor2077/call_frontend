@@ -1,17 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Shield, UserCog, Headset } from 'lucide-react';
+import { UserCog, Headset } from 'lucide-react';
 
 const roles = [
-  {
-    href: '/login/superadmin',
-    icon: Shield,
-    title: 'Superadmin',
-    description: 'Barcha markazlarni boshqarish',
-    gradient: 'from-purple-500 to-purple-700',
-    hover: 'hover:border-purple-200 hover:bg-purple-50',
-  },
   {
     href: '/login/admin',
     icon: UserCog,
