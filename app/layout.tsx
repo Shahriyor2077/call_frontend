@@ -14,7 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="uz" className="h-full">
-      <body className="h-full bg-gray-50 text-gray-900 antialiased">
+      <body
+        className="h-full bg-gray-50 text-gray-900 antialiased"
+        suppressHydrationWarning
+      >
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

@@ -77,17 +77,21 @@ export default function AdminSalaryPage() {
             </p>
           )}
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center">
           <input
             type="month"
             value={month}
             onChange={e => setMonth(e.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
+            className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none flex-1 min-w-0"
           />
-          <button className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 cursor-pointer">
-            <Download size={14} /> Eksport
+          <button className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 cursor-pointer whitespace-nowrap">
+            <Download size={14} /> <span className="hidden sm:inline">Eksport</span>
           </button>
-          <Button onClick={() => void confirm()}><Check size={14} className="mr-1" />Hisoblash va tasdiqlash</Button>
+          <Button onClick={() => void confirm()} className="whitespace-nowrap">
+            <Check size={14} className="mr-1" />
+            <span className="hidden sm:inline">Hisoblash va tasdiqlash</span>
+            <span className="sm:hidden">Hisoblash</span>
+          </Button>
         </div>
       </div>
 
@@ -149,7 +153,7 @@ export default function AdminSalaryPage() {
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {/* Month header */}
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-violet-50">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-linear-to-r from-indigo-50 to-violet-50">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm">
                   <Wallet size={16} />
@@ -250,7 +254,7 @@ export default function AdminSalaryPage() {
                   })}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-gray-200 bg-gradient-to-r from-gray-50 to-indigo-50/30">
+                  <tr className="border-t-2 border-gray-200 bg-linear-to-r from-gray-50 to-indigo-50/30">
                     <td className="px-5 py-4 font-bold text-gray-700" colSpan={3}>
                       <div className="flex items-center gap-2">
                         <TrendingUp size={14} className="text-indigo-500" />

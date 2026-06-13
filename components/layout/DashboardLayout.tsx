@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/store/auth.store';
 import Sidebar from './Sidebar';
+import SubscriptionBanner from '@/components/ui/SubscriptionBanner';
 import { Menu } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -39,6 +40,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <span className="font-bold text-gray-900 text-[15px]">SmartHub</span>
         </div>
 
+        <SubscriptionBanner />
         <main className="flex-1 overflow-auto p-3 md:p-6">
           {children}
         </main>

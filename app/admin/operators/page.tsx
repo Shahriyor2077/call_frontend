@@ -200,7 +200,7 @@ export default function OperatorsPage() {
               value={search}
               onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
               placeholder="Qidirish..."
-              className="pl-8 pr-3 py-2 border border-gray-200 rounded-xl text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
+              className="pl-8 pr-3 py-2 border border-gray-200 rounded-xl text-sm w-full sm:w-48 focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
             />
           </div>
           <Button onClick={openCreate}>+ Yangi operator</Button>

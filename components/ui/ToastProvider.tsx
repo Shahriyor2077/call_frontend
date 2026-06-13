@@ -89,7 +89,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <div className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2 items-end pointer-events-none">
+      <div
+        className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2 items-end pointer-events-none"
+        suppressHydrationWarning
+      >
         {toasts.map(t => (
           <div key={t.id} className="pointer-events-auto">
             <ToastItem {...t} onRemove={remove} />

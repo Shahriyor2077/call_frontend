@@ -82,9 +82,8 @@ export default function PlansPage() {
       'Cheksiz talabalar',
       'CRM leadlar',
       "To'lov hisoboti",
-      p.operatorLimit >= 10 ? 'Maosh hisoboti' : null,
-      p.operatorLimit >= 20 ? 'API integratsiya' : null,
-    ].filter(Boolean) as string[];
+      'Maosh hisoboti',
+    ];
   }
 
   return (
