@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 
@@ -28,20 +29,55 @@ const COLORS = [
 
 const MONTH_SHORT = ['yan', 'fev', 'mar', 'apr', 'may', 'iyn', 'iyl', 'avg', 'sen', 'okt', 'noy', 'dek'];
 
+function fmtDate(d: string | null | undefined) {
+  if (!d) return null;
+  const dt = new Date(d);
+  return `${String(dt.getDate()).padStart(2, '0')}.${String(dt.getMonth() + 1).padStart(2, '0')}.${dt.getFullYear().toString().slice(-2)}`;
+}
+
 export default function SchedulePage() {
+  const router = useRouter();
   const [groups, setGroups] = useState<any[]>([]);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/groups').then(r => setGroups(r.data)).catch(() => {});
+    setLoading(true);
+    api.get('/groups').then(r => {
+      // Faqat faol guruhlarni ko'rsatish
+      const activeGroups = r.data.filter((g: any) =>
+        !g.isArchived && (g.status === 'ACTIVE' || g.status === 'GATHERING')
+      );
+      setGroups(activeGroups);
+    }).catch(() => { }).finally(() => setLoading(false));
   }, []);
 
-  function groupsForDayHour(dayKey: string, hour: string) {
+  function groupsForDayHour(dayKey: string, hour: string, dayDate: Date) {
     return groups.filter(g => {
       if (!g.days?.includes(dayKey)) return false;
       if (!g.startTime) return false;
       const [h] = g.startTime.split(':');
-      return `${h.padStart(2, '0')}:00` === hour;
+      if (`${h.padStart(2, '0')}:00` !== hour) return false;
+
+      // Agar guruh boshlanish sanasi bo'lsa, faqat o'sha sanadan keyin ko'rsatamiz
+      if (g.startDate) {
+        const groupStart = new Date(g.startDate);
+        groupStart.setHours(0, 0, 0, 0);
+        const currentDay = new Date(dayDate);
+        currentDay.setHours(0, 0, 0, 0);
+        if (currentDay < groupStart) return false;
+      }
+
+      // Agar guruh tugash sanasi bo'lsa, faqat o'sha sanagacha ko'rsatamiz
+      if (g.endDate) {
+        const groupEnd = new Date(g.endDate);
+        groupEnd.setHours(0, 0, 0, 0);
+        const currentDay = new Date(dayDate);
+        currentDay.setHours(0, 0, 0, 0);
+        if (currentDay > groupEnd) return false;
+      }
+
+      return true;
     });
   }
 
@@ -70,7 +106,7 @@ export default function SchedulePage() {
   }
 
   const activeHours = HOURS.filter(hour =>
-    DAYS.some(d => groupsForDayHour(d.key, hour).length > 0)
+    DAYS.some((d, idx) => groupsForDayHour(d.key, hour, getDayDate(idx)).length > 0)
   );
   const displayHours = activeHours.length > 0 ? HOURS.filter(h => {
     const idx = HOURS.indexOf(h);
@@ -135,33 +171,51 @@ export default function SchedulePage() {
         </div>
 
         {/* Time rows */}
-        {displayHours.map(hour => (
+        {loading && (
+          <div className="py-16 text-center text-gray-400">
+            <div className="animate-spin w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2" />
+            <p className="text-sm">Yuklanmoqda...</p>
+          </div>
+        )}
+
+        {!loading && displayHours.map(hour => (
           <div key={hour} className="grid border-b last:border-b-0" style={{ gridTemplateColumns: '64px repeat(7, 1fr)', minHeight: '64px' }}>
             <div className="border-r flex items-start justify-end pr-3 pt-2.5">
               <span className="text-xs text-gray-400 font-medium">{hour}</span>
             </div>
             {DAYS.map((d, idx) => {
-              const dayGroups = groupsForDayHour(d.key, hour);
+              const dayDate = getDayDate(idx);
+              const dayGroups = groupsForDayHour(d.key, hour, dayDate);
               const today = isToday(idx);
               return (
                 <div key={d.key} className={`border-r last:border-r-0 p-1.5 space-y-1 ${today ? 'bg-indigo-50/40' : ''}`}>
-                  {dayGroups.map(g => (
-                    <div
-                      key={g.id}
-                      className={`rounded-lg px-2 py-1.5 text-xs font-medium border ${colorMap[g.id]} shadow-sm`}
-                      title={`${g.name} · ${g.startTime}–${g.endTime}`}
-                    >
-                      <div className="truncate font-semibold">{g.name}</div>
-                      <div className="opacity-60 text-[10px] mt-0.5">{g.startTime}–{g.endTime}</div>
-                    </div>
-                  ))}
+                  {dayGroups.map(g => {
+                    const startD = fmtDate(g.startDate);
+                    const endD = fmtDate(g.endDate);
+                    const dateRange = startD && endD ? `${startD}–${endD}` : startD || endD || null;
+
+                    return (
+                      <div
+                        key={g.id}
+                        onClick={() => router.push(`/admin/groups/${g.id}`)}
+                        className={`rounded-lg px-2 py-1.5 text-xs font-medium border ${colorMap[g.id]} shadow-sm cursor-pointer hover:shadow-md transition-shadow`}
+                        title={`${g.name} · ${g.startTime}–${g.endTime}${dateRange ? ` · ${dateRange}` : ''}`}
+                      >
+                        <div className="truncate font-semibold">{g.name}</div>
+                        <div className="opacity-60 text-[10px] mt-0.5">{g.startTime}–{g.endTime}</div>
+                        {dateRange && (
+                          <div className="opacity-50 text-[9px] mt-0.5 truncate">{dateRange}</div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
           </div>
         ))}
 
-        {groups.length === 0 && (
+        {!loading && groups.length === 0 && (
           <div className="py-16 text-center text-gray-400">
             <Calendar size={32} className="mx-auto mb-2 text-gray-300" />
             <p className="text-sm">Jadval bo&apos;sh — guruhlar qo&apos;shilganda bu yerda ko&apos;rinadi</p>

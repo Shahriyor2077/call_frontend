@@ -36,6 +36,12 @@ const STATUS_DOT: Record<string, string> = {
   ACTIVE: 'bg-green-500', GATHERING: 'bg-blue-500', COMPLETED: 'bg-gray-400', CANCELLED: 'bg-red-400',
 };
 
+function fmtDate(d: string | null | undefined) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return `${String(dt.getDate()).padStart(2, '0')}.${String(dt.getMonth() + 1).padStart(2, '0')}.${dt.getFullYear()}`;
+}
+
 export default function GroupsPage() {
   const toast = useToast();
   const searchParams = useSearchParams();
@@ -251,119 +257,119 @@ export default function GroupsPage() {
       {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 bg-gray-50/50 text-left">
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide rounded-tl-2xl">GURUH</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">KURS</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">O&apos;QITUVCHI</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">TALABALAR</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">NARX</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">HOLAT</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide w-36 rounded-tr-2xl">HARAKATLAR</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {paginated.map(g => {
-              const enrolled = g._count?.enrollments ?? 0;
-              const pct = Math.min(100, (enrolled / (g.maxStudents || 1)) * 100);
-              return (
-                <tr key={g.id} className="hover:bg-gray-50/60 transition-colors">
-                  <td className="px-5 py-3.5">
-                    <div>
-                      <p className="font-semibold text-gray-900">{g.name}</p>
-                      {(g.days?.length > 0 || g.startTime) && (
-                        <div className="flex items-center gap-1 mt-1 flex-wrap">
-                          {(g.days || []).map((d: string) => (
-                            <span key={d} className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-medium">
-                              {DAYS_OPTIONS.find(x => x.value === d)?.label ?? d}
-                            </span>
-                          ))}
-                          {g.startTime && (
-                            <span className="text-[10px] text-gray-400">{g.startTime}–{g.endTime}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold">
-                      {g.course?.name ?? '—'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    {g.teacher ? (
-                      <div className="flex items-center gap-2">
-                        <Avatar name={g.teacher.name} size="sm" />
-                        <span className="text-gray-700 text-sm">{g.teacher.name}</span>
-                      </div>
-                    ) : <span className="text-gray-300 text-sm">—</span>}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900 text-sm">{enrolled}/{g.maxStudents}</span>
-                      <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5 font-semibold text-gray-900 text-sm">
-                    {g.price ? `${Number(g.price).toLocaleString('uz-UZ')} so'm` : <span className="text-gray-300 font-normal">—</span>}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        if (menuOpen === `status_${g.id}`) {
-                          setMenuOpen(null);
-                          setMenuGroup(null);
-                        } else {
-                          const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                          setMenuPos({ top: rect.bottom + 4, left: rect.left });
-                          setMenuGroup(g);
-                          setMenuOpen(`status_${g.id}`);
-                        }
-                      }}
-                      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full cursor-pointer select-none border transition-colors ${STATUS_COLORS[g.status] ?? 'bg-gray-100 text-gray-500'}`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[g.status]}`} />
-                      {STATUS_LABELS[g.status] ?? g.status}
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-50"><path d="m6 9 6 6 6-6"/></svg>
-                    </button>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-1.5">
-                      {[
-                        { label: "O'quvchi biriktirish", icon: <UserPlus size={14} />, cls: 'bg-green-500 hover:bg-green-600', onClick: () => router.push(`/admin/groups/${g.id}/enroll`) },
-                        { label: 'Tahrirlash', icon: <Pencil size={14} />, cls: 'bg-blue-400 hover:bg-blue-500', onClick: () => openEdit(g) },
-                        { label: "Ko'rish", icon: <Eye size={14} />, cls: 'bg-indigo-500 hover:bg-indigo-600', onClick: () => router.push(`/admin/groups/${g.id}`) },
-                        { label: "O'chirish", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>, cls: 'bg-red-400 hover:bg-red-500', onClick: () => { setDeleteModal(g); } },
-                      ].map(btn => (
-                        <div key={btn.label} className="relative group/tip">
-                          <button
-                            onClick={btn.onClick}
-                            className={`w-8 h-8 flex items-center justify-center rounded-lg text-white transition-colors cursor-pointer shadow-sm ${btn.cls}`}
-                          >
-                            {btn.icon}
-                          </button>
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
-                            {btn.label}
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-            {paginated.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-5 py-14 text-center text-gray-400">Guruhlar topilmadi</td>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50/50 text-left">
+                <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide rounded-tl-2xl">GURUH</th>
+                <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">KURS</th>
+                <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">O&apos;QITUVCHI</th>
+                <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">TALABALAR</th>
+                <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">NARX</th>
+                <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide">HOLAT</th>
+                <th className="px-5 py-3 text-xs font-semibold text-gray-400 tracking-wide w-36 rounded-tr-2xl">HARAKATLAR</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {paginated.map(g => {
+                const enrolled = g._count?.enrollments ?? 0;
+                const pct = Math.min(100, (enrolled / (g.maxStudents || 1)) * 100);
+                return (
+                  <tr key={g.id} className="hover:bg-gray-50/60 transition-colors">
+                    <td className="px-5 py-3.5">
+                      <div>
+                        <p className="font-semibold text-gray-900">{g.name}</p>
+                        {(g.days?.length > 0 || g.startTime) && (
+                          <div className="flex items-center gap-1 mt-1 flex-wrap">
+                            {(g.days || []).map((d: string) => (
+                              <span key={d} className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-medium">
+                                {DAYS_OPTIONS.find(x => x.value === d)?.label ?? d}
+                              </span>
+                            ))}
+                            {g.startTime && (
+                              <span className="text-[10px] text-gray-400">{g.startTime}–{g.endTime}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold">
+                        {g.course?.name ?? '—'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      {g.teacher ? (
+                        <div className="flex items-center gap-2">
+                          <Avatar name={g.teacher.name} size="sm" />
+                          <span className="text-gray-700 text-sm">{g.teacher.name}</span>
+                        </div>
+                      ) : <span className="text-gray-300 text-sm">—</span>}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-900 text-sm">{enrolled}/{g.maxStudents}</span>
+                        <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 font-semibold text-gray-900 text-sm">
+                      {g.price ? `${Number(g.price).toLocaleString('uz-UZ')} so'm` : <span className="text-gray-300 font-normal">—</span>}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (menuOpen === `status_${g.id}`) {
+                            setMenuOpen(null);
+                            setMenuGroup(null);
+                          } else {
+                            const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                            setMenuPos({ top: rect.bottom + 4, left: rect.left });
+                            setMenuGroup(g);
+                            setMenuOpen(`status_${g.id}`);
+                          }
+                        }}
+                        className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full cursor-pointer select-none border transition-colors ${STATUS_COLORS[g.status] ?? 'bg-gray-100 text-gray-500'}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[g.status]}`} />
+                        {STATUS_LABELS[g.status] ?? g.status}
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-50"><path d="m6 9 6 6 6-6" /></svg>
+                      </button>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-1.5">
+                        {[
+                          { label: "O'quvchi biriktirish", icon: <UserPlus size={14} />, cls: 'bg-green-500 hover:bg-green-600', onClick: () => router.push(`/admin/groups/${g.id}/enroll`) },
+                          { label: 'Tahrirlash', icon: <Pencil size={14} />, cls: 'bg-blue-400 hover:bg-blue-500', onClick: () => openEdit(g) },
+                          { label: "Ko'rish", icon: <Eye size={14} />, cls: 'bg-indigo-500 hover:bg-indigo-600', onClick: () => router.push(`/admin/groups/${g.id}`) },
+                          { label: "O'chirish", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>, cls: 'bg-red-400 hover:bg-red-500', onClick: () => { setDeleteModal(g); } },
+                        ].map(btn => (
+                          <div key={btn.label} className="relative group/tip">
+                            <button
+                              onClick={btn.onClick}
+                              className={`w-8 h-8 flex items-center justify-center rounded-lg text-white transition-colors cursor-pointer shadow-sm ${btn.cls}`}
+                            >
+                              {btn.icon}
+                            </button>
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                              {btn.label}
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {paginated.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-5 py-14 text-center text-gray-400">Guruhlar topilmadi</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
