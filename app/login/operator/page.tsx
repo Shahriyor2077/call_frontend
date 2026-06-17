@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Headset, ArrowLeft, Phone, Lock, Eye, EyeOff, Building2 } from 'lucide-react';
+import { Headset, ArrowLeft, Phone, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import api from '@/lib/api';
 import { parseLoginError } from '@/lib/parseLoginError';
@@ -13,33 +13,20 @@ import ClientOnly from '@/components/layout/ClientOnly';
 const inputCls = "w-full py-2.5 rounded-xl border border-slate-600/60 bg-slate-700/50 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:bg-slate-700 focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/20 transition-all";
 
 export default function OperatorLoginPage() {
-  const [centers, setCenters] = useState<{ id: string; name: string }[]>([]);
-  const [centerId, setCenterId] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loadingCenters, setLoadingCenters] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'error' } | null>(null);
   const { setUser } = useAuthStore();
   const router = useRouter();
-
-  useEffect(() => {
-    api.get('/centers/public')
-      .then(({ data }) => setCenters(data))
-      .catch(() => setToast({ message: 'Markazlar yuklanmadi', type: 'error' }))
-      .finally(() => setLoadingCenters(false));
-  }, []);
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setToast(null);
     try {
-      const payload: any = { phone, password };
-      if (centerId) payload.centerId = centerId;
-
-      const { data } = await api.post('/auth/login', payload);
+      const { data } = await api.post('/auth/login', { phone, password });
       if (data.user.role !== 'OPERATOR') {
         setToast({ message: "Bu sahifa faqat operator uchun", type: 'error' });
         setLoading(false);
@@ -77,23 +64,6 @@ export default function OperatorLoginPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {centers.length > 1 && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Markaz (ixtiyoriy)</label>
-                  <div className="relative">
-                    <Building2 size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-                    {loadingCenters ? (
-                      <div className={`${inputCls} pl-10 pr-4 text-slate-500`}>Yuklanmoqda...</div>
-                    ) : (
-                      <select value={centerId} onChange={e => setCenterId(e.target.value)} className={`${inputCls} pl-10 pr-4 appearance-none cursor-pointer`}>
-                        <option value="" className="bg-slate-800">— Barcha markazlar —</option>
-                        {centers.map(c => <option key={c.id} value={c.id} className="bg-slate-800">{c.name}</option>)}
-                      </select>
-                    )}
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Telefon</label>
                 <div className="relative">
